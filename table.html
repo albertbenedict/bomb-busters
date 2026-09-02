@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Busters — table</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav>
+  <span class="display">Bomb Busters</span>
+  <button class="toggle" id="theme-toggle">Dark mode</button>
+</nav>
+
+<main>
+  <div class="card center">
+    <p class="muted">Room code</p>
+    <div class="room-code" id="room-code">----</div>
+    <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center;"></p>
+    <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
+  </div>
+
+  <div class="card">
+    <p class="muted">Detonator</p>
+    <div class="detonator" id="detonator">0 / 0</div>
+  </div>
+
+  <div class="card">
+    <p class="muted">Wires cut</p>
+    <div id="cut-count">0</div>
+  </div>
+
+  <div class="card">
+    <h3>Team</h3>
+    <ul id="players"></ul>
+    <p id="lobby-hint" class="muted">Waiting for 2–5 players to join with the room code above.</p>
+  </div>
+
+  <button id="start-btn" class="hidden">Start game</button>
+  <p id="status" class="display"></p>
+</main>
+
+<script type="module" src="js/table.js"></script>
+<script src="js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Busters — your wires</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav>
+  <span class="display">Bomb Busters</span>
+  <button class="toggle" id="theme-toggle">Dark mode</button>
+</nav>
+
+<main>
+  <div class="card center">
+    <p class="muted" id="turn-indicator">Waiting…</p>
+  </div>
+
+  <div class="card">
+    <h3>Your wires</h3>
+    <div id="hand"></div>
+    <button id="solo-btn" class="hidden"></button>
+  </div>
+
+  <div class="card">
+    <h3>Guess a teammate's wire</h3>
+    <p class="muted">Tap a position, then enter the value you think it is.</p>
+    <div id="targets"></div>
+  </div>
+
+  <p id="status" class="display"></p>
+</main>
+
+<script type="module" src="js/player.js"></script>
+<script src="js/theme.js"></script>
+</body>
+</html>

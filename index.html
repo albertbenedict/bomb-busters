@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Busters</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav>
+  <span class="display nav-brand"><span class="nav-dot" aria-hidden="true"></span> Bomb Busters</span>
+  <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
+</nav>
+
+<main class="lobby">
+  <div class="card lobby-card host-card stack">
+    <div class="card-head">
+      <h2>Host a game</h2>
+      <span class="badge">Table view</span>
+    </div>
+    <p class="muted">This device becomes the table — set it somewhere everyone can see it.</p>
+    <div class="settings-grid">
+      <label class="field">
+        <span class="field-label">Wires <span class="field-hint">1 – 12</span></span>
+        <div class="number-field">
+          <input id="wire-count" type="number" value="12" min="4" max="12" inputmode="numeric" aria-label="Wire count">
+        </div>
+      </label>
+      <label class="field">
+        <span class="field-label">Detonator limit</span>
+        <div class="number-field">
+          <input id="detonator-max" type="number" value="4" min="1" max="10" inputmode="numeric" aria-label="Detonator limit">
+        </div>
+      </label>
+    </div>
+    <button id="host-btn" class="btn-primary">Host game <span aria-hidden="true">→</span></button>
+    <p id="host-error" class="form-error hidden"></p>
+    <p id="host-hint" class="muted" style="font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;"><span id="conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="conn-text">Connecting…</span></p>
+  </div>
+
+  <div class="card lobby-card join-card stack">
+    <div class="card-head">
+      <h2>Join a game</h2>
+      <span class="badge badge--muted">Player view</span>
+    </div>
+    <p class="muted">This device becomes your private hand of wires.</p>
+    <div class="join-fields stack">
+      <label class="field field--input">
+        <span class="sr-only">Your name</span>
+        <input id="join-name" placeholder="Your name" autocomplete="name" maxlength="24">
+      </label>
+      <label class="field field--input">
+        <span class="sr-only">Room code</span>
+        <input id="join-code" placeholder="ROOM CODE" autocomplete="off" maxlength="8" style="text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">
+      </label>
+    </div>
+    <button id="join-btn" class="btn-secondary">Join game</button>
+    <p id="join-error" class="form-error hidden"><span aria-hidden="true">⚠</span> Couldn't find that room code.</p>
+  </div>
+</main>
+
+<script type="module">
+  import { createSession, joinSession, sessionExists } from "./js/session.js";
+  import { db } from "./js/firebase-config.js";
+  import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  // Show Firebase connection state – helps diagnose the Firefox SecurityError / WebSocket block
+  const connDot = document.getElementById("conn-dot");
+  const connText = document.getElementById("conn-text");
+  const hostError = document.getElementById("host-error");
+  const hostBtn = document.getElementById("host-btn");
+  const joinBtn = document.getElementById("join-btn");
+
+  function setConn(connected) {
+    if (!connDot || !connText) return;
+    connDot.style.background = connected ? "#1a9e32" : "#c81e2c";
+    connDot.style.boxShadow = connected ? "0 0 0 4px #d1f0d7" : "0 0 0 4px #fdeceb";
+    connText.textContent = connected ? "Connected to Bomb Busters server" : "Offline — check Wi-Fi / Firefox tracking protection";
+    if (connected) hostError?.classList.add("hidden");
+  }
+
+  // .info/connected is a Firebase magic path – null until SDK connects via WebSocket/long-poll
+  try {
+    onValue(ref(db, ".info/connected"), (snap) => setConn(snap.val() === true), (err) => {
+      console.error("conn check failed", err);
+      setConn(false);
+    });
+  } catch (e) {
+    console.error("conn listener failed", e);
+    setConn(false);
+  }
+
+  // Global handler for that Firefox “may not load or link to file:///” red herring
+  window.addEventListener("error", (e) => {
+    if (e.message && e.message.includes("file:///")) {
+      console.warn("Blocked file:// load – are you opening via file:/// instead of http://<IP>:3000 ? Use npx serve -l tcp://0.0.0.0:3000 --cors", e);
+    }
+  });
+
+  hostBtn.addEventListener("click", async () => {
+    const wireCount = Number(document.getElementById("wire-count").value) || 12;
+    const detonatorMax = Number(document.getElementById("detonator-max").value) || 4;
+    hostError.classList.add("hidden");
+    hostError.textContent = "";
+    hostBtn.disabled = true;
+    hostBtn.textContent = "Creating…";
+    try {
+      const code = await createSession({ wireCount, detonatorMax });
+      if (!code) throw new Error("Empty code returned");
+      location.href = `table.html?session=${code}`;
+    } catch (err) {
+      console.error("createSession failed", err);
+      // Firefox ETP blocks wss://*.firebaseio.com → WebSocket SecurityError
+      const msg = err?.message || String(err);
+      const isSecurity = msg.includes("SecurityError") || msg.includes("permission_denied") || msg.includes("PERMISSION_DENIED");
+      hostError.textContent = isSecurity
+        ? "⚠ Firefox blocked the connection (SecurityError). On both PC & phone: open Firefox → address bar shield → turn OFF Enhanced Tracking Protection for this site, or try Chrome/Edge. Then reload."
+        : `⚠ Couldn't create room: ${msg}. Check Wi-Fi, then reload.`;
+      hostError.classList.remove("hidden");
+      hostBtn.disabled = false;
+      hostBtn.innerHTML = `Host game <span aria-hidden="true">→</span>`;
+    }
+  });
+
+  joinBtn.addEventListener("click", async () => {
+    const name = document.getElementById("join-name").value.trim();
+    const code = document.getElementById("join-code").value.trim().toUpperCase();
+    const errorEl = document.getElementById("join-error");
+    if (!name || !code) {
+      errorEl.textContent = "⚠ Enter your name and the 4-character room code.";
+      errorEl.classList.remove("hidden");
+      return;
+    }
+    joinBtn.disabled = true;
+    joinBtn.textContent = "Checking…";
+    try {
+      const exists = await sessionExists(code);
+      if (!exists) {
+        errorEl.textContent = "⚠ Couldn't find that room code.";
+        errorEl.classList.remove("hidden");
+        joinBtn.disabled = false;
+        joinBtn.textContent = "Join game";
+        return;
+      }
+      errorEl.classList.add("hidden");
+      const playerId = await joinSession(code, name);
+      location.href = `player.html?session=${code}&player=${playerId}`;
+    } catch (err) {
+      console.error("join failed", err);
+      errorEl.textContent = `⚠ Join failed: ${err?.message || err}. If you see SecurityError, disable Firefox Tracking Protection.`;
+      errorEl.classList.remove("hidden");
+      joinBtn.disabled = false;
+      joinBtn.textContent = "Join game";
+    }
+  });
+</script>
+<script src="js/theme.js"></script>
+</body>
+</html>

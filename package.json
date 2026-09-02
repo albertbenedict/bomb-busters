@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "serve": "npx serve -l tcp://0.0.0.0:3000 --cors",
+    "serve:lan": "npx http-server -a 0.0.0.0 -p 3000 --cors -c-1 .",
+    "dev": "npx serve -l tcp://0.0.0.0:3000 --cors"
+  },
+  "dependencies": {
+    "firebase": "^12.18.0"
+  }
+}
