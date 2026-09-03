@@ -79,7 +79,6 @@
     if (connected) hostError?.classList.add("hidden");
   }
 
-  // .info/connected is a Firebase magic path – null until SDK connects via WebSocket/long-poll
   try {
     onValue(ref(db, ".info/connected"), (snap) => setConn(snap.val() === true), (err) => {
       console.error("conn check failed", err);
@@ -90,7 +89,6 @@
     setConn(false);
   }
 
-  // Global handler for that Firefox “may not load or link to file:///” red herring
   window.addEventListener("error", (e) => {
     if (e.message && e.message.includes("file:///")) {
       console.warn("Blocked file:// load – are you opening via file:/// instead of http://<IP>:3000 ? Use npx serve -l tcp://0.0.0.0:3000 --cors", e);
@@ -110,7 +108,6 @@
       location.href = `table.html?session=${code}`;
     } catch (err) {
       console.error("createSession failed", err);
-      // Firefox ETP blocks wss://*.firebaseio.com → WebSocket SecurityError
       const msg = err?.message || String(err);
       const isSecurity = msg.includes("SecurityError") || msg.includes("permission_denied") || msg.includes("PERMISSION_DENIED");
       hostError.textContent = isSecurity
@@ -122,12 +119,43 @@
     }
   });
 
+  // Reconnect hint: if this device previously joined this code, prefill name + show Rejoin
+  const joinCodeInput = document.getElementById("join-code");
+  const joinNameInput = document.getElementById("join-name");
+  joinCodeInput.addEventListener("input", () => {
+    const c = joinCodeInput.value.trim().toUpperCase();
+    if (c.length === 4) {
+      try {
+        const prevName = localStorage.getItem(`bb-name-${c}`);
+        const prevId = localStorage.getItem(`bb-player-${c}`);
+        if (prevName && prevId) {
+          joinNameInput.value = prevName;
+          joinBtn.textContent = `Rejoin as ${prevName}`;
+          const err = document.getElementById("join-error");
+          err.textContent = `↻ Found previous session for ${prevName} – tap to rejoin with same hand.`;
+          err.style.color = "var(--text-muted)";
+          err.style.background = "var(--surface)";
+          err.style.borderColor = "var(--border-soft)";
+          err.classList.remove("hidden");
+        } else {
+          joinBtn.textContent = "Join game";
+        }
+      } catch {}
+    }
+  });
+  // Prefill last name used
+  try {
+    const lastName = localStorage.getItem("bb-last-name");
+    if (lastName && !joinNameInput.value) joinNameInput.value = lastName;
+  } catch {}
+
   joinBtn.addEventListener("click", async () => {
     const name = document.getElementById("join-name").value.trim();
     const code = document.getElementById("join-code").value.trim().toUpperCase();
     const errorEl = document.getElementById("join-error");
     if (!name || !code) {
       errorEl.textContent = "⚠ Enter your name and the 4-character room code.";
+      errorEl.style.color = ""; errorEl.style.background = ""; errorEl.style.borderColor = "";
       errorEl.classList.remove("hidden");
       return;
     }
@@ -137,17 +165,21 @@
       const exists = await sessionExists(code);
       if (!exists) {
         errorEl.textContent = "⚠ Couldn't find that room code.";
+        errorEl.style.color = ""; errorEl.style.background = ""; errorEl.style.borderColor = "";
         errorEl.classList.remove("hidden");
         joinBtn.disabled = false;
         joinBtn.textContent = "Join game";
         return;
       }
       errorEl.classList.add("hidden");
+      errorEl.style.color = ""; errorEl.style.background = ""; errorEl.style.borderColor = "";
+      try { localStorage.setItem("bb-last-name", name); } catch {}
       const playerId = await joinSession(code, name);
       location.href = `player.html?session=${code}&player=${playerId}`;
     } catch (err) {
       console.error("join failed", err);
       errorEl.textContent = `⚠ Join failed: ${err?.message || err}. If you see SecurityError, disable Firefox Tracking Protection.`;
+      errorEl.style.color = ""; errorEl.style.background = ""; errorEl.style.borderColor = "";
       errorEl.classList.remove("hidden");
       joinBtn.disabled = false;
       joinBtn.textContent = "Join game";

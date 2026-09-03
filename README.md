@@ -59,8 +59,29 @@ Function that owns the write.
 ES modules need an actual server (not `file://`) — from this folder:
 
 ```
-npx serve .
+npm run serve          # npx serve -l tcp://0.0.0.0:3000 --cors  (phone: http://<PC-IP>:3000)
+# or
+npm run serve:lan      # http-server variant
 ```
 
-Then open the printed localhost URL. Nothing will work yet until
-`js/firebase-config.js` has a real project's config — that's next.
+For LAN phones, use the printed `Network` address (e.g. `http://192.168.1.3:3000`), not `localhost`. If Windows Firewall blocks, allow `Node.js` / `Code` or run `tailscale funnel 3000` and use `https://<tailnet>.ts.net`.
+
+## Firebase rules
+
+Test-mode rules (`now < ...`) expire after 30 days. This repo ships `database.rules.json` with **no expiry** and basic validation (status/config/players). Deploy it:
+
+```
+# via Firebase CLI (once)
+npm i -g firebase-tools && firebase login
+firebase use bomb-busters-744e5
+firebase deploy --only database
+```
+
+Or paste the file contents into Firebase Console → Realtime Database → Rules.
+
+## Reliability notes
+
+- **Reconnect:** Joining with the same `room code + name` (case-insensitive) reuses your old `playerId` and hand instead of orphaning it. Player pages also restore from `localStorage` on refresh.
+- **Turn skip:** `nextTurn()` skips players whose hand is already fully cut.
+- **Host controls:** Table screen has Kick per-player and Reset game (back to lobby, keeps players).
+

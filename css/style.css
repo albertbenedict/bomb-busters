@@ -361,3 +361,41 @@ li:last-child { border-bottom: none; }
 .muted { color: var(--text-muted); font-size: 0.9rem; }
 .center { text-align: center; }
 .hidden { display: none !important; }
+
+/* Table + player screen additions (from suggestions) */
+.badge--danger {
+  background: var(--danger);
+  color: var(--bg);
+  border-color: var(--danger);
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.player-row:last-child { border-bottom: none; }
+
+.banner {
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1.4rem;
+  text-align: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.banner--success { background: var(--text); color: var(--bg); }
+.banner--danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+.value-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+.value-grid button { padding: 0.6rem 0; }
+
+#turn-indicator.badge { display: inline-block; }

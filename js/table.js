@@ -1,6 +1,6 @@
 import { db } from "./firebase-config.js";
 import {
-  ref, update, get, onValue,
+  ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
 import { buildDeck, dealHands } from "./game-logic.js";
@@ -85,8 +85,6 @@ try {
 if (code) {
   watchSession(code, (session) => {
     if (!session) {
-      // Don't clobber the "No room code" error – that case already handled.
-      // This fires when code exists in URL but DB has no session (expired or blocked).
       showTableError(
         `No session found for "${code}".`,
         "It may have expired, or Firefox blocked Firebase (SecurityError). Disable Enhanced Tracking Protection (shield icon) and reload, then Host again."
@@ -105,35 +103,94 @@ function render(session) {
   const players = session.public.players || {};
   Object.entries(players).forEach(([id, p]) => {
     const li = document.createElement("li");
-    const turnTag = session.currentTurn === id ? " — turn" : "";
-    li.textContent = `${p.name} (${p.wireCount} wires)${turnTag}`;
+    li.className = "player-row";
+    const left = document.createElement("div");
+    left.style.display = "flex";
+    left.style.alignItems = "center";
+    left.style.gap = "0.5rem";
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = `${p.name} · ${p.wireCount} wires`;
+    left.appendChild(nameSpan);
+    if (p.connected === false) {
+      const off = document.createElement("span");
+      off.className = "badge badge--muted";
+      off.textContent = "Offline";
+      off.style.fontSize = "0.6rem";
+      left.appendChild(off);
+    }
+    if (session.currentTurn === id) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = "Turn";
+      left.appendChild(badge);
+    }
+    li.appendChild(left);
+
+    const kickBtn = document.createElement("button");
+    kickBtn.textContent = "Kick";
+    kickBtn.className = "danger";
+    kickBtn.style.padding = "0.25rem 0.6rem";
+    kickBtn.style.fontSize = "0.8rem";
+    kickBtn.style.borderWidth = "1px";
+    kickBtn.onclick = () => kickPlayer(id, p.name);
+    li.appendChild(kickBtn);
+
     playersEl.appendChild(li);
   });
 
   const detonator = session.public.detonator;
   const detonatorEl = document.getElementById("detonator");
   detonatorEl.textContent = `${detonator.position} / ${detonator.max}`;
-  detonatorEl.classList.toggle("warn", detonator.position >= detonator.max - 1);
+  const danger = detonator.position >= detonator.max - 1;
+  detonatorEl.classList.toggle("warn", danger);
+
+  const detonatorBadge = document.getElementById("detonator-badge");
+  detonatorBadge.textContent = danger ? "Danger" : "Safe";
+  detonatorBadge.classList.toggle("badge--danger", danger);
+  detonatorBadge.classList.toggle("badge--muted", !danger);
 
   const cutLog = Object.values(session.public.cutLog || {});
   const cutCount = cutLog.filter((c) => c.result === "cut").length;
   document.getElementById("cut-count").textContent = cutCount;
 
+  const lobbyBadge = document.getElementById("lobby-badge");
+  const finished = session.status === "won" || session.status === "lost";
+  lobbyBadge.classList.toggle("hidden", finished);
+  lobbyBadge.textContent = session.status === "in_progress" ? "Live" : "Lobby";
+
   const statusEl = document.getElementById("status");
-  if (session.status === "won") statusEl.textContent = "Mission complete — every wire cut.";
-  else if (session.status === "lost") statusEl.textContent = "Bomb exploded — mission failed.";
-  else statusEl.textContent = "";
+  if (session.status === "won") {
+    statusEl.textContent = "Mission complete — every wire cut.";
+    statusEl.className = "banner banner--success";
+  } else if (session.status === "lost") {
+    statusEl.textContent = "Bomb exploded — mission failed.";
+    statusEl.className = "banner banner--danger";
+  } else {
+    statusEl.className = "banner hidden";
+  }
 
   const startBtn = document.getElementById("start-btn");
-  const canStart = session.status === "lobby" && Object.keys(players).length >= 2 && Object.keys(players).length <= 5;
+  const resetBtn = document.getElementById("reset-btn");
+  const endBtn = document.getElementById("end-btn");
+  const hostHint = document.getElementById("host-hint");
+  const playerCount = Object.keys(players).length;
+  const canStart = session.status === "lobby" && playerCount >= 2 && playerCount <= 5;
   startBtn.classList.toggle("hidden", !canStart);
   document.getElementById("lobby-hint").classList.toggle("hidden", session.status !== "lobby");
+
+  // Host controls visible once session exists (lobby or in_progress)
+  const hasSession = !!session && !!session.config;
+  resetBtn.classList.toggle("hidden", !hasSession);
+  endBtn.classList.toggle("hidden", !hasSession);
+  hostHint.classList.toggle("hidden", !hasSession);
 }
 
 document.getElementById("start-btn").addEventListener("click", async () => {
   const snap = await get(ref(db, `sessions/${code}`));
   const session = snap.val();
+  if (!session || !session.public.players) return;
   const playerIds = Object.keys(session.public.players);
+  if (playerIds.length < 2) return;
   const deck = buildDeck(session.config.wireCount);
   const hands = dealHands(deck, playerIds);
 
@@ -142,10 +199,87 @@ document.getElementById("start-btn").addEventListener("click", async () => {
     turnOrder: playerIds,
     currentTurn: playerIds[0],
     hands,
+    pendingGuess: null,
+    lastOutcome: null,
   };
   playerIds.forEach((id) => {
     updates[`public/players/${id}/wireCount`] = hands[id].length;
+    updates[`public/players/${id}/connected`] = true;
   });
+  // Clear previous game artefacts
+  updates["public/cutLog"] = {};
+  updates["public/infoTokens"] = {};
+  updates["public/validationTokens"] = {};
+  updates["public/detonator/position"] = 0;
 
   await update(ref(db, `sessions/${code}`), updates);
+});
+
+async function kickPlayer(playerId, name) {
+  if (!confirm(`Kick ${name}? Their hand will be removed.`)) return;
+  const snap = await get(ref(db, `sessions/${code}`));
+  const session = snap.val();
+  if (!session) return;
+  const updates = {};
+  updates[`public/players/${playerId}`] = null;
+  updates[`hands/${playerId}`] = null;
+  // Remove from turnOrder
+  const order = (session.turnOrder || []).filter((id) => id !== playerId);
+  updates["turnOrder"] = order;
+  // If kicked player was current turn, advance (with skip)
+  if (session.currentTurn === playerId) {
+    if (order.length === 0) {
+      updates["currentTurn"] = null;
+    } else {
+      // Find next live player (skip fully cut)
+      let next = order[0];
+      for (const id of order) {
+        const hand = session.hands && session.hands[id];
+        if (!hand || hand.every((w) => w.cut) === false) { next = id; break; }
+      }
+      updates["currentTurn"] = next;
+    }
+  }
+  // If lobby and only kick, keep status
+  if (order.length < 2 && session.status === "in_progress") {
+    updates["status"] = "lobby";
+  }
+  await update(ref(db, `sessions/${code}`), updates);
+}
+
+document.getElementById("reset-btn").addEventListener("click", async () => {
+  if (!confirm("Reset to lobby? Keeps players but clears all wires, cuts and detonator.")) return;
+  const snap = await get(ref(db, `sessions/${code}`));
+  const session = snap.val();
+  if (!session) return;
+  const updates = {
+    status: "lobby",
+    turnOrder: [],
+    currentTurn: null,
+    pendingGuess: null,
+    lastOutcome: null,
+    hands: {},
+    "public/cutLog": {},
+    "public/infoTokens": {},
+    "public/validationTokens": {},
+    "public/detonator/position": 0,
+  };
+  Object.keys(session.public.players || {}).forEach((id) => {
+    updates[`public/players/${id}/wireCount`] = 0;
+    updates[`public/players/${id}/connected`] = true;
+  });
+  await update(ref(db, `sessions/${code}`), updates);
+});
+
+document.getElementById("end-btn").addEventListener("click", async () => {
+  if (!confirm("End session? This deletes the room for everyone.")) return;
+  try {
+    await set(ref(db, `sessions/${code}`), null);
+  } catch (e) {
+    console.error("end failed", e);
+    alert("Failed to end: " + e.message);
+    return;
+  }
+  document.getElementById("room-code").textContent = "—";
+  showTableError("Session ended.", "Share a new code from Host.");
 });

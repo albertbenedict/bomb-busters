@@ -1,6 +1,6 @@
 import { db } from "./firebase-config.js";
 import {
-  ref, set, get, onValue,
+  ref, set, get, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 function withTimeout(promise, ms, label) {
@@ -47,12 +47,46 @@ export async function createSession({ wireCount = 12, detonatorMax = 4 }) {
 }
 
 export async function joinSession(code, playerName) {
+  const nameTrim = playerName.trim();
+  const nameLower = nameTrim.toLowerCase();
+  // Reconnect: if this name already has a playerId in the lobby, reuse it
+  try {
+    const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
+    const players = playersSnap.val() || {};
+    const existing = Object.entries(players).find(([, p]) => p && p.name && p.name.trim().toLowerCase() === nameLower);
+    if (existing) {
+      const [existingId, existingData] = existing;
+      await withTimeout(update(ref(db, `sessions/${code}/public/players/${existingId}`), {
+        name: nameTrim,
+        connected: true,
+      }), 5000, "Reconnecting");
+      try { onDisconnect(ref(db, `sessions/${code}/public/players/${existingId}/connected`)).set(false); } catch {}
+      // Ensure turnOrder contains them if game already started and they were removed
+      const sessionSnap = await withTimeout(get(ref(db, `sessions/${code}`)), 5000, "Checking session");
+      const sess = sessionSnap.val();
+      if (sess && Array.isArray(sess.turnOrder) && !sess.turnOrder.includes(existingId)) {
+        // Player rejoining after kick would have turnOrder missing – add back only in lobby
+        if (sess.status === "lobby") {
+          await withTimeout(update(ref(db, `sessions/${code}`), {
+            turnOrder: [...sess.turnOrder, existingId],
+          }), 5000, "Restoring turn");
+        }
+      }
+      try { localStorage.setItem(`bb-player-${code}`, existingId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
+      return existingId;
+    }
+  } catch (e) {
+    console.warn("reconnect check failed, creating new player", e);
+  }
+
   const playerId = "p_" + Math.random().toString(36).slice(2, 9);
   await withTimeout(set(ref(db, `sessions/${code}/public/players/${playerId}`), {
-    name: playerName,
+    name: nameTrim,
     wireCount: 0,
     connected: true,
   }), 8000, "Joining room");
+  try { onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`)).set(false); } catch {}
+  try { localStorage.setItem(`bb-player-${code}`, playerId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
   return playerId;
 }
 

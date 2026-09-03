@@ -8,28 +8,41 @@
 </head>
 <body>
 <nav>
-  <span class="display">Bomb Busters</span>
-  <button class="toggle" id="theme-toggle">Dark mode</button>
+  <span class="display nav-brand"><span class="nav-dot" aria-hidden="true"></span> Bomb Busters</span>
+  <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
 </nav>
 
 <main>
   <div class="card center">
-    <p class="muted" id="turn-indicator">Waiting…</p>
+    <span class="badge badge--muted" id="turn-indicator">Waiting…</span>
+  </div>
+
+  <div id="guess-composer" class="card hidden">
+    <div class="card-head">
+      <h3>Guess the value</h3>
+      <span class="badge badge--muted" id="guess-target-label"></span>
+    </div>
+    <div id="guess-options" class="value-grid"></div>
+    <button id="guess-cancel" class="btn-secondary">Cancel</button>
   </div>
 
   <div class="card">
-    <h3>Your wires</h3>
+    <div class="card-head">
+      <h3>Your wires</h3>
+    </div>
     <div id="hand"></div>
-    <button id="solo-btn" class="hidden"></button>
+    <button id="solo-btn" class="btn-primary hidden"></button>
   </div>
 
   <div class="card">
-    <h3>Guess a teammate's wire</h3>
-    <p class="muted">Tap a position, then enter the value you think it is.</p>
+    <div class="card-head">
+      <h3>Guess a teammate's wire</h3>
+    </div>
+    <p class="muted">Tap a position, then pick the value you think it is.</p>
     <div id="targets"></div>
   </div>
 
-  <p id="status" class="display"></p>
+  <div id="status" class="banner hidden"></div>
 </main>
 
 <script type="module" src="js/player.js"></script>

@@ -1,6 +1,6 @@
 import { db } from "./firebase-config.js";
 import {
-  ref, onValue, update,
+  ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { getSoloCutEligibleValue, isHandFullyCut } from "./game-logic.js";
 
@@ -9,22 +9,50 @@ const code = params.get("session");
 const playerId = params.get("player");
 
 let session = null;
+let activeGuess = null; // { targetId, targetName, position } while the value picker is open
 
-if (!code || !playerId || code === "undefined" || code === "null") {
-  document.getElementById("turn-indicator").textContent = "⚠ Missing session – go back and Join again.";
+if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
+  const el = document.getElementById("turn-indicator");
+  if (el) {
+    el.textContent = "⚠ Missing session – go back and Join again.";
+    el.className = "badge badge--danger";
+  }
   console.error("player.js missing params", { code, playerId, href: location.href });
 } else {
+  // Mark this handheld as connected (and auto-offline on disconnect/refresh)
+  try {
+    update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: true });
+    onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`)).set(false);
+    try { localStorage.setItem(`bb-player-${code}`, playerId); } catch {}
+  } catch (e) { console.warn("presence failed", e); }
+
   onValue(ref(db, `sessions/${code}`), (snap) => {
     session = snap.val();
     if (!session) {
-      document.getElementById("turn-indicator").textContent = `⚠ No session "${code}" – did Firefox block Firebase? Disable Tracking Protection.`;
+      const el = document.getElementById("turn-indicator");
+      if (el) {
+        el.textContent = `⚠ No session "${code}" – did Firefox block Firebase? Disable Tracking Protection.`;
+        el.className = "badge badge--danger";
+      }
       console.warn("player no session", code);
       return;
+    }
+    // Ensure we still show presence if reconnected
+    if (session.public.players && session.public.players[playerId] && session.public.players[playerId].connected === false) {
+      try { update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: true }); } catch {}
     }
     render();
   }, (err) => {
     console.error("player onValue error", err);
-    document.getElementById("turn-indicator").textContent = "⚠ Connection failed – check Wi-Fi / disable Firefox shield.";
+    const el = document.getElementById("turn-indicator");
+    if (el) {
+      el.textContent = "⚠ Connection failed – check Wi-Fi / disable Firefox shield.";
+      el.className = "badge badge--danger";
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    try { update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: false }); } catch {}
   });
 }
 
@@ -40,14 +68,16 @@ function render() {
     handEl.appendChild(div);
   });
 
-  document.getElementById("turn-indicator").textContent =
-    session.currentTurn === playerId ? "Your turn" : "Waiting for your turn…";
+  const canAct = session.currentTurn === playerId && session.status === "in_progress";
+  const turnEl = document.getElementById("turn-indicator");
+  turnEl.textContent = canAct ? "Your turn" : "Waiting for your turn…";
+  turnEl.className = canAct ? "badge" : "badge badge--muted";
 
-  renderTargets(session);
+  renderTargets(canAct);
+  renderGuessComposer();
 
   const soloValue = getSoloCutEligibleValue(myHand, session.public.cutLog);
   const soloBtn = document.getElementById("solo-btn");
-  const canAct = session.currentTurn === playerId && session.status === "in_progress";
   soloBtn.classList.toggle("hidden", !(soloValue && canAct));
   soloBtn.textContent = `Solo cut your ${soloValue}s`;
   soloBtn.onclick = () => performSoloCut(soloValue);
@@ -64,15 +94,20 @@ function render() {
   }
 
   const statusEl = document.getElementById("status");
-  statusEl.textContent =
-    session.status === "won" ? "Mission complete!" :
-    session.status === "lost" ? "Bomb exploded — mission failed." : "";
+  if (session.status === "won") {
+    statusEl.textContent = "Mission complete!";
+    statusEl.className = "banner banner--success";
+  } else if (session.status === "lost") {
+    statusEl.textContent = "Bomb exploded — mission failed.";
+    statusEl.className = "banner banner--danger";
+  } else {
+    statusEl.className = "banner hidden";
+  }
 }
 
-function renderTargets(session) {
+function renderTargets(canAct) {
   const targetsEl = document.getElementById("targets");
   targetsEl.innerHTML = "";
-  const canAct = session.currentTurn === playerId && session.status === "in_progress";
 
   Object.entries(session.public.players || {}).forEach(([id, p]) => {
     if (id === playerId) return;
@@ -86,17 +121,46 @@ function renderTargets(session) {
       const btn = document.createElement("button");
       btn.textContent = pos + 1;
       btn.disabled = !canAct;
-      btn.addEventListener("click", () => promptGuess(id, pos));
+      btn.addEventListener("click", () => {
+        activeGuess = { targetId: id, targetName: p.name, position: pos };
+        render();
+      });
       group.appendChild(btn);
     }
     targetsEl.appendChild(group);
   });
 }
 
-function promptGuess(targetId, position) {
-  const raw = prompt("Guess this wire's value:");
-  const value = Number(raw);
-  if (!raw || Number.isNaN(value)) return;
+// Inline value picker — replaces the old window.prompt() flow.
+function renderGuessComposer() {
+  const composer = document.getElementById("guess-composer");
+  if (!activeGuess) {
+    composer.classList.add("hidden");
+    return;
+  }
+  composer.classList.remove("hidden");
+  document.getElementById("guess-target-label").textContent =
+    `${activeGuess.targetName} · wire ${activeGuess.position + 1}`;
+
+  const optionsEl = document.getElementById("guess-options");
+  optionsEl.innerHTML = "";
+  const wireCount = session.config.wireCount;
+  for (let value = 1; value <= wireCount; value++) {
+    const btn = document.createElement("button");
+    btn.textContent = value;
+    btn.addEventListener("click", () => submitGuess(value));
+    optionsEl.appendChild(btn);
+  }
+
+  document.getElementById("guess-cancel").onclick = () => {
+    activeGuess = null;
+    render();
+  };
+}
+
+function submitGuess(value) {
+  const { targetId, position } = activeGuess;
+  activeGuess = null;
   update(ref(db, `sessions/${code}`), {
     pendingGuess: { by: playerId, target: targetId, position, value, action: "duo" },
   });
@@ -185,7 +249,17 @@ async function performSoloCut(value) {
 
 function nextTurn() {
   const order = session.turnOrder;
-  return order[(order.indexOf(playerId) + 1) % order.length];
+  if (!order || order.length === 0) return playerId;
+  const startIdx = order.indexOf(playerId);
+  if (startIdx === -1) return order[0];
+  // Skip players whose hand is already fully cut
+  for (let step = 1; step <= order.length; step++) {
+    const nextId = order[(startIdx + step) % order.length];
+    const hand = session.hands && session.hands[nextId];
+    if (!hand || !isHandFullyCut(hand)) return nextId;
+  }
+  // All other hands cut – game will be won on next checkWin()
+  return order[(startIdx + 1) % order.length];
 }
 
 async function checkWin() {

@@ -8,36 +8,49 @@
 </head>
 <body>
 <nav>
-  <span class="display">Bomb Busters</span>
-  <button class="toggle" id="theme-toggle">Dark mode</button>
+  <span class="display nav-brand"><span class="nav-dot" aria-hidden="true"></span> Bomb Busters</span>
+  <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
 </nav>
 
 <main>
   <div class="card center">
     <p class="muted">Room code</p>
     <div class="room-code" id="room-code">----</div>
-    <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center;"></p>
+    <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center; flex-direction:column;"></p>
     <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
   </div>
 
   <div class="card">
-    <p class="muted">Detonator</p>
+    <div class="card-head">
+      <h3>Detonator</h3>
+      <span class="badge badge--muted" id="detonator-badge">Safe</span>
+    </div>
     <div class="detonator" id="detonator">0 / 0</div>
   </div>
 
   <div class="card">
-    <p class="muted">Wires cut</p>
+    <div class="card-head">
+      <h3>Wires cut</h3>
+    </div>
     <div id="cut-count">0</div>
   </div>
 
   <div class="card">
-    <h3>Team</h3>
+    <div class="card-head">
+      <h3>Team</h3>
+      <span class="badge badge--muted" id="lobby-badge">Lobby</span>
+    </div>
     <ul id="players"></ul>
     <p id="lobby-hint" class="muted">Waiting for 2–5 players to join with the room code above.</p>
   </div>
 
-  <button id="start-btn" class="hidden">Start game</button>
-  <p id="status" class="display"></p>
+  <button id="start-btn" class="btn-primary hidden">Start game</button>
+  <div class="row" style="gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+    <button id="reset-btn" class="btn-secondary hidden" style="flex:1; min-width:140px;">↺ Reset to lobby</button>
+    <button id="end-btn" class="hidden" style="flex:1; min-width:140px; border-color:var(--danger); color:var(--danger);">End session</button>
+  </div>
+  <p id="host-hint" class="muted hidden" style="margin-top:0.5rem; font-size:0.82rem;">Reset keeps players but clears wires. End deletes the room (players will see “No session”).</p>
+  <div id="status" class="banner hidden"></div>
 </main>
 
 <script type="module" src="js/table.js"></script>
