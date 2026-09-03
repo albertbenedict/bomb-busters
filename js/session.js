@@ -46,39 +46,55 @@ export async function createSession({ wireCount = 12, detonatorMax = 4 }) {
   throw new Error("Failed to generate unique room code – please retry");
 }
 
-export async function joinSession(code, playerName) {
+export async function joinSession(code, playerName, storedId = null) {
   const nameTrim = playerName.trim();
-  const nameLower = nameTrim.toLowerCase();
-  // Reconnect: if this name already has a playerId in the lobby, reuse it
+  // 1) Device-based reconnect – stored playerId for this room (localStorage)
+  //    This is the correct key: "this device already has a seat here"
+  if (storedId) {
+    try {
+      const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
+      const players = playersSnap.val() || {};
+      if (players[storedId]) {
+        await withTimeout(update(ref(db, `sessions/${code}/public/players/${storedId}`), {
+          name: nameTrim,
+          connected: true,
+        }), 5000, "Reconnecting");
+        try { onDisconnect(ref(db, `sessions/${code}/public/players/${storedId}/connected`)).set(false); } catch {}
+        const sessionSnap = await withTimeout(get(ref(db, `sessions/${code}`)), 5000, "Checking session");
+        const sess = sessionSnap.val();
+        if (sess && Array.isArray(sess.turnOrder) && !sess.turnOrder.includes(storedId) && sess.status === "lobby") {
+          await withTimeout(update(ref(db, `sessions/${code}`), { turnOrder: [...sess.turnOrder, storedId] }), 5000, "Restoring turn");
+        }
+        try { localStorage.setItem(`bb-player-${code}`, storedId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
+        return storedId;
+      }
+    } catch (e) {
+      console.warn("storedId reconnect failed, falling back", e);
+    }
+  }
+
+  // 2) Fallback for devices that cleared storage: only reuse an *offline* seat with same name
+  //    Never steal an active (connected:true) seat – allows two "Sam"s with different devices
   try {
     const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
     const players = playersSnap.val() || {};
-    const existing = Object.entries(players).find(([, p]) => p && p.name && p.name.trim().toLowerCase() === nameLower);
-    if (existing) {
-      const [existingId, existingData] = existing;
-      await withTimeout(update(ref(db, `sessions/${code}/public/players/${existingId}`), {
+    const nameLower = nameTrim.toLowerCase();
+    const offlineMatch = Object.entries(players).find(([, p]) => p && p.name && p.name.trim().toLowerCase() === nameLower && p.connected === false);
+    if (offlineMatch) {
+      const [offlineId] = offlineMatch;
+      await withTimeout(update(ref(db, `sessions/${code}/public/players/${offlineId}`), {
         name: nameTrim,
         connected: true,
-      }), 5000, "Reconnecting");
-      try { onDisconnect(ref(db, `sessions/${code}/public/players/${existingId}/connected`)).set(false); } catch {}
-      // Ensure turnOrder contains them if game already started and they were removed
-      const sessionSnap = await withTimeout(get(ref(db, `sessions/${code}`)), 5000, "Checking session");
-      const sess = sessionSnap.val();
-      if (sess && Array.isArray(sess.turnOrder) && !sess.turnOrder.includes(existingId)) {
-        // Player rejoining after kick would have turnOrder missing – add back only in lobby
-        if (sess.status === "lobby") {
-          await withTimeout(update(ref(db, `sessions/${code}`), {
-            turnOrder: [...sess.turnOrder, existingId],
-          }), 5000, "Restoring turn");
-        }
-      }
-      try { localStorage.setItem(`bb-player-${code}`, existingId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
-      return existingId;
+      }), 5000, "Reconnecting offline");
+      try { onDisconnect(ref(db, `sessions/${code}/public/players/${offlineId}/connected`)).set(false); } catch {}
+      try { localStorage.setItem(`bb-player-${code}`, offlineId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
+      return offlineId;
     }
   } catch (e) {
-    console.warn("reconnect check failed, creating new player", e);
+    console.warn("offline name check failed", e);
   }
 
+  // 3) No reusable seat – create a fresh playerId (allows duplicate display names)
   const playerId = "p_" + Math.random().toString(36).slice(2, 9);
   await withTimeout(set(ref(db, `sessions/${code}/public/players/${playerId}`), {
     name: nameTrim,

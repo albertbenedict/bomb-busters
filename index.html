@@ -174,7 +174,9 @@
       errorEl.classList.add("hidden");
       errorEl.style.color = ""; errorEl.style.background = ""; errorEl.style.borderColor = "";
       try { localStorage.setItem("bb-last-name", name); } catch {}
-      const playerId = await joinSession(code, name);
+      let storedId = null;
+      try { storedId = localStorage.getItem(`bb-player-${code}`); } catch {}
+      const playerId = await joinSession(code, name, storedId);
       location.href = `player.html?session=${code}&player=${playerId}`;
     } catch (err) {
       console.error("join failed", err);
