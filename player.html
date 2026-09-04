@@ -13,9 +13,12 @@
 </nav>
 
 <main>
-  <div class="card center">
-    <span class="badge badge--muted" id="turn-indicator">Waiting…</span>
+  <div id="turn-banner" class="turn-banner turn-banner--waiting">
+    <div id="turn-banner-label" class="turn-banner__label">Waiting…</div>
+    <div id="turn-indicator" class="turn-banner__sub badge badge--muted">Waiting for your turn…</div>
   </div>
+
+  <div id="guess-result" class="guess-result hidden" aria-live="polite"></div>
 
   <div id="guess-composer" class="card hidden">
     <div class="card-head">
@@ -23,24 +26,28 @@
       <span class="badge badge--muted" id="guess-target-label"></span>
     </div>
     <div id="guess-options" class="value-grid"></div>
+    <div class="value-grid__divider"><span>or</span></div>
+    <div id="guess-yellow-row" class="value-grid__yellow"></div>
     <button id="guess-cancel" class="btn-secondary">Cancel</button>
   </div>
 
   <div class="card">
     <div class="card-head">
       <h3>Your wires</h3>
+      <span class="badge badge--muted" id="hand-count-badge">—</span>
     </div>
-    <div id="hand"></div>
+    <div id="hand" class="hand hand--tiles"></div>
     <button id="solo-btn" class="btn-primary hidden"></button>
     <button id="reveal-red-btn" class="btn-reveal hidden">Reveal red wires</button>
+    <div id="equipment-actions" class="equipment-actions"></div>
   </div>
 
   <div class="card">
     <div class="card-head">
       <h3>Guess a teammate's wire</h3>
     </div>
-    <p class="muted">Tap a position, then pick the value you think it is.</p>
-    <div id="targets"></div>
+    <p class="muted">Tap a teammate's slot, then pick the value.</p>
+    <div id="targets" class="targets"></div>
   </div>
 
   <div id="status" class="banner hidden"></div>

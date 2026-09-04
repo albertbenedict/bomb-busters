@@ -38,6 +38,15 @@
           "cutLog": { ".validate": true },
           "infoTokens": { ".validate": true },
           "validationTokens": { ".validate": true },
+          "equipment": {
+            "$eid": {
+              ".validate": "newData.hasChildren(['unlockValue', 'unlocked', 'used'])",
+              "unlockValue": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 12" },
+              "unlocked": { ".validate": "newData.isBoolean()" },
+              "used": { ".validate": "newData.isBoolean()" },
+              "$other": { ".validate": false }
+            }
+          },
           "$other": { ".validate": false }
         },
         "hands": { ".validate": true }

@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut } from "./game-logic.js";
+import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -60,22 +60,69 @@ function wireLabel(wire) {
   return "R";
 }
 
+// Track previous hand-cut state (to animate only wires that just transitioned
+// to cut) and whether the hand has painted at least once (so the entrance
+// animation plays only on first paint, not on every render() call — render()
+// fires on every Firebase update, not just ones relevant to your own hand).
+let prevHandCut = [];
+let hasRenderedHand = false;
+
 function render() {
   const myHand = (session.hands && session.hands[playerId]) || [];
 
   const handEl = document.getElementById("hand");
   handEl.innerHTML = "";
-  myHand.forEach((wire) => {
+  myHand.forEach((wire, i) => {
+    const wasCut = prevHandCut[i] === true;
+    const nowCut = !!wire.cut;
     const div = document.createElement("div");
-    div.className = `wire wire--${wire.type}` + (wire.cut ? " cut" : "");
+    let extra = "";
+    if (!wasCut && nowCut) extra = " wire--cutting";
+    else if (!hasRenderedHand) extra = " wire--enter";
+    div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra;
     div.textContent = wireLabel(wire);
     handEl.appendChild(div);
   });
+  prevHandCut = myHand.map((w) => !!w.cut);
+  if (myHand.length > 0) hasRenderedHand = true;
+
+  const countBadge = document.getElementById("hand-count-badge");
+  if (countBadge) {
+    const remaining = myHand.filter((w) => !w.cut).length;
+    countBadge.textContent = myHand.length ? `${remaining} left · ${myHand.length} total` : "—";
+  }
 
   const canAct = session.currentTurn === playerId && session.status === "in_progress";
+  // Turn banner — prominent, names whose turn it is
+  const banner = document.getElementById("turn-banner");
+  const bannerLabel = document.getElementById("turn-banner-label");
   const turnEl = document.getElementById("turn-indicator");
-  turnEl.textContent = canAct ? "Your turn" : "Waiting for your turn…";
-  turnEl.className = canAct ? "badge" : "badge badge--muted";
+  const currentName = session.public.players && session.currentTurn && session.public.players[session.currentTurn]
+    ? session.public.players[session.currentTurn].name
+    : null;
+  if (banner && bannerLabel && turnEl) {
+    if (session.status === "won" || session.status === "lost") {
+      banner.className = "turn-banner hidden";
+    } else if (canAct) {
+      banner.className = "turn-banner turn-banner--active";
+      bannerLabel.textContent = "Your turn — go!";
+      turnEl.textContent = "Pick a teammate's wire";
+      turnEl.className = "turn-banner__sub badge";
+    } else {
+      banner.className = "turn-banner turn-banner--waiting";
+      if (currentName) {
+        bannerLabel.innerHTML = `Waiting for <span class="turn-banner__waiting-name">${currentName}</span>`;
+        turnEl.textContent = `${currentName}'s turn`;
+      } else {
+        bannerLabel.textContent = session.status === "lobby" ? "Waiting to start…" : "Waiting…";
+        turnEl.textContent = "Waiting for next turn…";
+      }
+      turnEl.className = "turn-banner__sub badge badge--muted";
+    }
+  } else if (turnEl) {
+    turnEl.textContent = canAct ? "Your turn" : currentName ? `Waiting for ${currentName}…` : "Waiting…";
+    turnEl.className = canAct ? "badge" : "badge badge--muted";
+  }
 
   renderTargets(canAct);
   renderGuessComposer();
@@ -90,6 +137,11 @@ function render() {
   const revealBtn = document.getElementById("reveal-red-btn");
   revealBtn.classList.toggle("hidden", !(canReveal && canAct));
   revealBtn.onclick = () => revealRedWires();
+
+  renderEquipment(canAct);
+
+  // Guess result — brief Correct! / Wrong! for both guesser and target
+  renderGuessResult();
 
   // I'm the target of a live guess — only my device can check it, since
   // only I legitimately know my own hand's real values.
@@ -122,20 +174,39 @@ function renderTargets(canAct) {
     if (id === playerId) return;
     const group = document.createElement("div");
     group.className = "player-group";
+    const head = document.createElement("div");
+    head.className = "player-group__head";
     const label = document.createElement("div");
-    label.innerHTML = `<strong>${p.name}</strong>`;
-    group.appendChild(label);
+    label.className = "player-group__name";
+    label.textContent = p.name;
+    head.appendChild(label);
+    const meta = document.createElement("span");
+    meta.className = "badge badge--muted";
+    meta.style.fontSize = "0.62rem";
+    meta.textContent = `${p.wireCount} wires`;
+    head.appendChild(meta);
+    group.appendChild(head);
 
+    const rack = document.createElement("div");
+    rack.className = "rack";
+    const theirHand = session.hands && session.hands[id];
     for (let pos = 0; pos < p.wireCount; pos++) {
+      const alreadyCut = !!(theirHand && theirHand[pos] && theirHand[pos].cut);
       const btn = document.createElement("button");
+      btn.className = "rack-wire" + (alreadyCut ? " rack-wire--cut" : "");
+      if (activeGuess && activeGuess.targetId === id && activeGuess.position === pos) btn.classList.add("rack-wire--active");
       btn.textContent = pos + 1;
-      btn.disabled = !canAct;
-      btn.addEventListener("click", () => {
-        activeGuess = { targetId: id, targetName: p.name, position: pos };
-        render();
-      });
-      group.appendChild(btn);
+      btn.disabled = !canAct || alreadyCut;
+      btn.setAttribute("aria-label", `${p.name} wire ${pos + 1}${alreadyCut ? " (cut)" : ""}`);
+      if (!alreadyCut) {
+        btn.addEventListener("click", () => {
+          activeGuess = { targetId: id, targetName: p.name, position: pos };
+          render();
+        });
+      }
+      rack.appendChild(btn);
     }
+    group.appendChild(rack);
     targetsEl.appendChild(group);
   });
 }
@@ -161,16 +232,91 @@ function renderGuessComposer() {
     btn.addEventListener("click", () => submitGuess(value));
     optionsEl.appendChild(btn);
   }
-  const yellowBtn = document.createElement("button");
-  yellowBtn.textContent = "Yellow";
-  yellowBtn.className = "option-yellow";
-  yellowBtn.addEventListener("click", () => submitGuess("yellow"));
-  optionsEl.appendChild(yellowBtn);
+  const yellowRow = document.getElementById("guess-yellow-row");
+  if (yellowRow) {
+    yellowRow.innerHTML = "";
+    const yellowBtn = document.createElement("button");
+    yellowBtn.textContent = "Yellow — any yellow wire";
+    yellowBtn.className = "option-yellow";
+    yellowBtn.addEventListener("click", () => submitGuess("yellow"));
+    yellowRow.appendChild(yellowBtn);
+  } else {
+    // Fallback if old DOM (should not happen)
+    const yellowBtn = document.createElement("button");
+    yellowBtn.textContent = "Yellow";
+    yellowBtn.className = "option-yellow";
+    yellowBtn.addEventListener("click", () => submitGuess("yellow"));
+    optionsEl.appendChild(yellowBtn);
+  }
 
   document.getElementById("guess-cancel").onclick = () => {
     activeGuess = null;
     render();
   };
+}
+
+function renderEquipment(canAct) {
+  const wrap = document.getElementById("equipment-actions");
+  if (!wrap || !session) return;
+  wrap.innerHTML = "";
+  const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
+  if (!usable.length || !canAct || session.status !== "in_progress") return;
+  // Free safety-net: doesn't end turn, just defuses detonator by 1 (min 0)
+  const atZero = (session.public.detonator?.position || 0) <= 0;
+  usable.forEach((eq) => {
+    const btn = document.createElement("button");
+    btn.className = "btn-equipment";
+    btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Defuse one mistake`;
+    btn.disabled = atZero;
+    btn.title = atZero ? "Detonator already at 0" : `Unlocked after 2 cuts of ${eq.unlockValue}s — reduces detonator by 1`;
+    btn.addEventListener("click", () => useEquipment(eq.id));
+    wrap.appendChild(btn);
+  });
+}
+
+async function useEquipment(equipmentId) {
+  if (!session || session.status !== "in_progress") return;
+  const pos = session.public.detonator?.position || 0;
+  if (pos <= 0) return;
+  // Re-check usable (guard against stale UI / double-click)
+  const usableIds = new Set(getUsableEquipment(session.public.equipment, session.public.cutLog).map((e) => e.id));
+  if (!usableIds.has(equipmentId)) return;
+  const updates = {};
+  updates[`public/equipment/${equipmentId}/used`] = true;
+  updates[`public/equipment/${equipmentId}/unlocked`] = true;
+  updates["public/detonator/position"] = Math.max(0, pos - 1);
+  await update(ref(db, `sessions/${code}`), updates);
+  // No turn change — free action
+}
+
+let lastOutcomeAt = 0;
+let resultHideTimer = null;
+function renderGuessResult() {
+  const el = document.getElementById("guess-result");
+  if (!el || !session) return;
+  const outcome = session.lastOutcome;
+  // Show for 4s after lastOutcome.at — visible to guesser, target, and spectators
+  if (outcome && outcome.at && Date.now() - outcome.at < 4200) {
+    if (outcome.at === lastOutcomeAt) return; // already showing this one
+    lastOutcomeAt = outcome.at;
+    const guesser = session.public.players?.[outcome.by]?.name || "Someone";
+    const target = session.public.players?.[outcome.target]?.name || "teammate";
+    const keyLabel = outcome.guessKey === "yellow" ? "Yellow" : outcome.guessKey != null ? String(outcome.guessKey) : "—";
+    const isForMe = outcome.by === playerId || outcome.target === playerId;
+    el.className = "guess-result " + (outcome.correct ? "guess-result--correct" : "guess-result--wrong");
+    el.innerHTML = (outcome.correct ? "✓ Correct!" : "✕ Wrong!") +
+      `<span class="guess-result__sub">${guesser} → ${target} · guessed ${keyLabel} on wire ${outcome.position + 1}${isForMe ? "" : ""}</span>`;
+    el.classList.remove("hidden");
+    if (resultHideTimer) clearTimeout(resultHideTimer);
+    resultHideTimer = setTimeout(() => el.classList.add("hidden"), 3800);
+  } else if (!outcome || Date.now() - (outcome.at || 0) >= 4200) {
+    // keep last shown until timeout, don't flicker
+    if (el && !el.classList.contains("hidden") && outcome && outcome.at === lastOutcomeAt) {
+      // let timer hide it
+    } else if (el) {
+      el.classList.add("hidden");
+    }
+  }
 }
 
 function submitGuess(guessKey) {
@@ -187,6 +333,13 @@ function submitGuess(guessKey) {
 async function resolvePendingGuess(guess) {
   const myHand = session.hands[playerId];
   const wire = myHand[guess.position];
+
+  if (!wire || wire.cut) {
+    // Already resolved (stale click, or the UI just hasn't caught up yet) — no-op.
+    await update(ref(db, `sessions/${code}`), { pendingGuess: null });
+    return;
+  }
+
   const correct = wire.guessKey === guess.guessKey;
   const stamp = Date.now();
 

@@ -96,3 +96,33 @@ export function canRevealRedWires(hand) {
 export function isHandFullyCut(hand) {
   return hand.every((wire) => wire.cut);
 }
+
+// Equipment — v1, single effect "Defuse one mistake"
+export function generateEquipment(count, wireCount) {
+  const n = Math.max(0, Math.min(5, Math.round(Number(count) || 0)));
+  const w = Math.max(1, Math.min(12, Math.round(Number(wireCount) || 12)));
+  const equipment = {};
+  if (n === 0) return equipment;
+  let values = [];
+  if (w >= n) {
+    // Pick n distinct blue values
+    const pool = [];
+    for (let v = 1; v <= w; v++) pool.push(v);
+    values = shuffle(pool).slice(0, n);
+  } else {
+    // Rare edge: small custom pool (e.g. wireCount=2, players=5) — allow repeats
+    for (let i = 0; i < n; i++) values.push(1 + Math.floor(Math.random() * w));
+  }
+  values.forEach((val) => {
+    const id = "eq_" + Math.random().toString(36).slice(2, 8);
+    equipment[id] = { unlockValue: val, unlocked: false, used: false };
+  });
+  return equipment;
+}
+
+export function getUsableEquipment(equipment, cutLog) {
+  const eq = equipment || {};
+  return Object.entries(eq)
+    .filter(([, e]) => !e.used && cutCountForKey(cutLog, e.unlockValue) >= 2)
+    .map(([id, e]) => ({ id, ...e }));
+}
