@@ -260,6 +260,50 @@ function render(session) {
     }
   }
 
+  // Hints — one blue factual per player, strict turnOrder + target-only wrong reveals
+  const hintsEl = document.getElementById("hints-pool");
+  if (hintsEl) {
+    hintsEl.innerHTML = "";
+    const hints = session.public.hints || {};
+    const infoTokens = session.public.infoTokens || {};
+    const hintOrder = session.public.hintOrder || session.turnOrder || [];
+    const hintIndex = session.public.hintIndex ?? hintOrder.length;
+    const totalPlayers = Object.keys(players).length;
+    const hintCount = Object.keys(hints).length;
+    const isHintPhase = session.status === "in_progress" && hintCount < totalPlayers && totalPlayers >= 2;
+    if (hintCount === 0 && totalPlayers >= 2 && session.status === "lobby") {
+      hintsEl.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints will appear after deal — one blue per player in turn order.</span>`;
+    } else {
+      // Factual hints + wrong auto-hints unified
+      hintOrder.forEach((pid) => {
+        const p = players[pid];
+        if (!p) return;
+        const h = hints[pid];
+        const chip = document.createElement("span");
+        if (h) {
+          chip.className = "hint-chip";
+          chip.textContent = `${p.name}: ${h.position + 1} is ${h.value}`;
+          chip.title = `Factual blue hint — wire ${h.position + 1} is ${h.value}`;
+        } else {
+          const isNext = hintOrder[hintIndex] === pid && isHintPhase;
+          chip.className = isNext ? "hint-chip hint-chip--next" : "hint-chip hint-chip--pending";
+          chip.textContent = `${p.name}: —`;
+          chip.title = isNext ? "Next to give hint" : "Awaiting hint";
+        }
+        hintsEl.appendChild(chip);
+      });
+      // Wrong reveals as "was" chips (target only)
+      Object.values(infoTokens).forEach((tok) => {
+        const owner = players[tok.ownerId];
+        const chip = document.createElement("span");
+        chip.className = "hint-chip hint-chip--wrong";
+        chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+        chip.title = `Wrong guess revealed — actual ${tok.value ?? tok.guessKey}`;
+        hintsEl.appendChild(chip);
+      });
+    }
+  }
+
   const startBtn = document.getElementById("start-btn");
   const resetBtn = document.getElementById("reset-btn");
   const endBtn = document.getElementById("end-btn");
@@ -302,6 +346,9 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   updates["public/validationTokens"] = {};
   updates["public/detonator/position"] = 0;
   updates["public/equipment"] = equipment;
+  updates["public/hints"] = {};
+  updates["public/hintOrder"] = playerIds;
+  updates["public/hintIndex"] = 0;
 
   await update(ref(db, `sessions/${code}`), updates);
 });
@@ -314,8 +361,19 @@ async function kickPlayer(playerId, name) {
   const updates = {};
   updates[`public/players/${playerId}`] = null;
   updates[`hands/${playerId}`] = null;
+  updates[`public/hints/${playerId}`] = null;
   const order = (session.turnOrder || []).filter((id) => id !== playerId);
   updates["turnOrder"] = order;
+  // Keep hintOrder in sync — strict sequential hints
+  const hintOrder = (session.public?.hintOrder || session.turnOrder || []).filter((id) => id !== playerId);
+  updates["public/hintOrder"] = hintOrder;
+  if (session.public?.hints && session.public.hints[playerId]) {
+    // if kicked player was next to hint, advance hintIndex if needed
+    const idx = (session.public.hintOrder || []).indexOf(playerId);
+    const curIdx = session.public.hintIndex ?? 0;
+    if (idx !== -1 && idx < curIdx) updates["public/hintIndex"] = Math.max(0, curIdx - 1);
+    else if (idx === curIdx) updates["public/hintIndex"] = curIdx;
+  }
   if (session.currentTurn === playerId) {
     if (order.length === 0) {
       updates["currentTurn"] = null;
@@ -350,6 +408,9 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
     "public/infoTokens": {},
     "public/validationTokens": {},
     "public/equipment": {},
+    "public/hints": {},
+    "public/hintOrder": [],
+    "public/hintIndex": 0,
     "public/detonator/position": 0,
   };
   Object.keys(session.public.players || {}).forEach((id) => {

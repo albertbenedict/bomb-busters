@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment } from "./game-logic.js";
+import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -70,6 +70,14 @@ let hasRenderedHand = false;
 function render() {
   const myHand = (session.hands && session.hands[playerId]) || [];
 
+  const hints = session.public.hints || {};
+  const hintOrder = session.public.hintOrder || session.turnOrder || [];
+  const hintIndex = session.public.hintIndex ?? 0;
+  const playerCount = Object.keys(session.public.players || {}).length;
+  const hintCount = Object.keys(hints).length;
+  const isHintPhase = session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
+  const isMyHintTurn = isHintPhase && hintOrder[hintIndex] === playerId && canGiveHint(hints, playerId);
+
   const handEl = document.getElementById("hand");
   handEl.innerHTML = "";
   myHand.forEach((wire, i) => {
@@ -79,8 +87,15 @@ function render() {
     let extra = "";
     if (!wasCut && nowCut) extra = " wire--cutting";
     else if (!hasRenderedHand) extra = " wire--enter";
-    div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra;
+    // During hint phase, make own blue wires hintable
+    const hintable = isMyHintTurn && wire.type === "blue" && !wire.cut;
+    div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra + (hintable ? " wire--hintable" : "");
     div.textContent = wireLabel(wire);
+    if (hintable) {
+      div.style.cursor = "pointer";
+      div.title = `Hint: wire ${i + 1} is ${wire.value}`;
+      div.addEventListener("click", () => submitHint(i));
+    }
     handEl.appendChild(div);
   });
   prevHandCut = myHand.map((w) => !!w.cut);
@@ -92,7 +107,8 @@ function render() {
     countBadge.textContent = myHand.length ? `${remaining} left · ${myHand.length} total` : "—";
   }
 
-  const canAct = session.currentTurn === playerId && session.status === "in_progress";
+  // Hint phase overrides normal turn banner
+  const canAct = !isHintPhase && session.currentTurn === playerId && session.status === "in_progress";
   // Turn banner — prominent, names whose turn it is
   const banner = document.getElementById("turn-banner");
   const bannerLabel = document.getElementById("turn-banner-label");
@@ -103,6 +119,24 @@ function render() {
   if (banner && bannerLabel && turnEl) {
     if (session.status === "won" || session.status === "lost") {
       banner.className = "turn-banner hidden";
+    } else if (isHintPhase) {
+      const hintPlayerName = hintOrder[hintIndex] ? session.public.players?.[hintOrder[hintIndex]]?.name : null;
+      if (isMyHintTurn) {
+        banner.className = "turn-banner turn-banner--active";
+        bannerLabel.textContent = "Your hint — tap a blue wire";
+        turnEl.textContent = "Pick one of your blue wires";
+        turnEl.className = "turn-banner__sub badge";
+      } else {
+        banner.className = "turn-banner turn-banner--waiting";
+        if (hintPlayerName) {
+          bannerLabel.innerHTML = `Hint: waiting for <span class="turn-banner__waiting-name">${hintPlayerName}</span>`;
+          turnEl.textContent = `${hintPlayerName}'s hint`;
+        } else {
+          bannerLabel.textContent = "Hints…";
+          turnEl.textContent = "Waiting for hints…";
+        }
+        turnEl.className = "turn-banner__sub badge badge--muted";
+      }
     } else if (canAct) {
       banner.className = "turn-banner turn-banner--active";
       bannerLabel.textContent = "Your turn — go!";
@@ -120,12 +154,23 @@ function render() {
       turnEl.className = "turn-banner__sub badge badge--muted";
     }
   } else if (turnEl) {
-    turnEl.textContent = canAct ? "Your turn" : currentName ? `Waiting for ${currentName}…` : "Waiting…";
-    turnEl.className = canAct ? "badge" : "badge badge--muted";
+    if (isHintPhase) {
+      const hn = hintOrder[hintIndex] ? session.public.players?.[hintOrder[hintIndex]]?.name : null;
+      turnEl.textContent = isMyHintTurn ? "Your hint" : hn ? `Waiting for ${hn}'s hint…` : "Hints…";
+      turnEl.className = isMyHintTurn ? "badge" : "badge badge--muted";
+    } else {
+      turnEl.textContent = canAct ? "Your turn" : currentName ? `Waiting for ${currentName}…` : "Waiting…";
+      turnEl.className = canAct ? "badge" : "badge badge--muted";
+    }
   }
 
-  renderTargets(canAct);
-  renderGuessComposer();
+  // During hint phase, disable normal guess actions
+  const effectiveCanAct = isHintPhase ? false : canAct;
+  renderTargets(effectiveCanAct);
+  renderGuessComposer(effectiveCanAct);
+  // Hints render inside guess composer area? Keep separate
+  renderHints();
+  renderHintActions(isMyHintTurn);
 
   const soloKey = getSoloCutEligibleKey(myHand, session.public.cutLog, session.config);
   const soloBtn = document.getElementById("solo-btn");
@@ -186,6 +231,35 @@ function renderTargets(canAct) {
     meta.textContent = `${p.wireCount} wires`;
     head.appendChild(meta);
     group.appendChild(head);
+
+    // Factual blue hint + wrong reveals for this teammate
+    const hints = session.public.hints || {};
+    const myHint = hints[id];
+    if (myHint) {
+      const hintRow = document.createElement("div");
+      hintRow.className = "hint-row";
+      const chip = document.createElement("span");
+      chip.className = "hint-chip";
+      chip.textContent = `Hint: ${myHint.position + 1} is ${myHint.value}`;
+      chip.title = `Factual — wire ${myHint.position + 1} is ${myHint.value}`;
+      hintRow.appendChild(chip);
+      group.appendChild(hintRow);
+    }
+    // Wrong auto-hints for this owner only (target was this player)
+    const infoTokens = session.public.infoTokens || {};
+    const wrongs = Object.values(infoTokens).filter((t) => t.ownerId === id);
+    if (wrongs.length) {
+      const wrongRow = document.createElement("div");
+      wrongRow.className = "hint-row";
+      wrongs.forEach((tok) => {
+        const chip = document.createElement("span");
+        chip.className = "hint-chip hint-chip--wrong";
+        chip.textContent = `${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+        chip.title = `Wrong guess revealed`;
+        wrongRow.appendChild(chip);
+      });
+      group.appendChild(wrongRow);
+    }
 
     const rack = document.createElement("div");
     rack.className = "rack";
@@ -272,6 +346,98 @@ function renderEquipment(canAct) {
     btn.addEventListener("click", () => useEquipment(eq.id));
     wrap.appendChild(btn);
   });
+}
+
+function renderHints() {
+  const list = document.getElementById("hints-list");
+  if (!list || !session) return;
+  list.innerHTML = "";
+  const hints = session.public.hints || {};
+  const infoTokens = session.public.infoTokens || {};
+  const players = session.public.players || {};
+  // Factual hints in turnOrder
+  const order = session.public.hintOrder || session.turnOrder || Object.keys(players);
+  order.forEach((pid) => {
+    const p = players[pid];
+    if (!p) return;
+    const h = hints[pid];
+    const chip = document.createElement("span");
+    if (h) {
+      chip.className = "hint-chip";
+      chip.textContent = `${p.name}: ${h.position + 1} is ${h.value}`;
+      chip.title = `Factual hint — wire ${h.position + 1} is ${h.value}`;
+    } else {
+      chip.className = "hint-chip hint-chip--pending";
+      chip.textContent = `${p.name}: —`;
+      chip.title = "Awaiting blue hint";
+    }
+    list.appendChild(chip);
+  });
+  // Wrong auto-reveals as "was" (target only)
+  Object.values(infoTokens).forEach((tok) => {
+    const owner = players[tok.ownerId];
+    const chip = document.createElement("span");
+    chip.className = "hint-chip hint-chip--wrong";
+    chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+    chip.title = `Wrong guess revealed`;
+    list.appendChild(chip);
+  });
+  if (!Object.keys(hints).length && !Object.keys(infoTokens).length) {
+    list.innerHTML = `<span class="muted" style="font-size:0.82rem;">No hints yet — each player gives one blue hint in turn order before guessing.</span>`;
+  }
+}
+
+function renderHintActions(isMyHintTurn) {
+  const wrap = document.getElementById("hint-actions");
+  if (!wrap || !session) return;
+  wrap.innerHTML = "";
+  const hints = session.public.hints || {};
+  const hintOrder = session.public.hintOrder || session.turnOrder || [];
+  const hintIndex = session.public.hintIndex ?? 0;
+  const playerCount = Object.keys(session.public.players || {}).length;
+  const hintCount = Object.keys(hints).length;
+  const isHintPhase = session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
+  if (!isHintPhase) return;
+  if (isMyHintTurn) {
+    const info = document.createElement("div");
+    info.className = "muted";
+    info.style.fontSize = "0.85rem";
+    info.style.marginBottom = "0.4rem";
+    info.textContent = "Tap a blue wire above to give your factual hint (one per game).";
+    wrap.appendChild(info);
+  } else {
+    const nextName = hintOrder[hintIndex] ? session.public.players?.[hintOrder[hintIndex]]?.name : null;
+    const info = document.createElement("div");
+    info.className = "muted";
+    info.style.fontSize = "0.85rem";
+    info.textContent = nextName ? `Waiting for ${nextName}'s hint…` : "Waiting for hints…";
+    wrap.appendChild(info);
+  }
+}
+
+async function submitHint(position) {
+  if (!session || session.status !== "in_progress") return;
+  const hints = session.public.hints || {};
+  const hintOrder = session.public.hintOrder || session.turnOrder || [];
+  const hintIndex = session.public.hintIndex ?? 0;
+  if (hints[playerId]) return; // already given
+  if (hintOrder[hintIndex] !== playerId) return; // strict order
+  const myHand = session.hands && session.hands[playerId];
+  if (!isBlueHintValid(myHand, position, session.config?.wireCount)) {
+    alert("Hint must be a blue wire — yellow and red cannot be hinted. Pick another blue wire.");
+    return;
+  }
+  const wire = myHand[position];
+  const updates = {};
+  updates[`public/hints/${playerId}`] = {
+    position,
+    value: wire.value,
+    guessKey: wire.value,
+    type: "blue",
+    at: Date.now(),
+  };
+  updates["public/hintIndex"] = hintIndex + 1;
+  await update(ref(db, `sessions/${code}`), updates);
 }
 
 async function useEquipment(equipmentId) {

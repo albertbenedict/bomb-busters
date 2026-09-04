@@ -126,3 +126,22 @@ export function getUsableEquipment(equipment, cutLog) {
     .filter(([, e]) => !e.used && cutCountForKey(cutLog, e.unlockValue) >= 2)
     .map(([id, e]) => ({ id, ...e }));
 }
+
+// Hints — factual blue-only, one per player, strict turnOrder
+export function isBlueHintValid(hand, position, wireCount) {
+  if (!hand || position == null || position < 0 || position >= hand.length) return false;
+  const w = hand[position];
+  if (!w || w.cut) return false;
+  if (w.type !== "blue") return false; // yellow/red never hintable
+  const wc = Math.max(1, Math.min(12, Number(wireCount) || 12));
+  if (typeof w.value !== "number" || w.value < 1 || w.value > wc) return false;
+  return true;
+}
+
+export function canGiveHint(hints, playerId) {
+  return !(hints && hints[playerId]);
+}
+
+export function isHintPhaseComplete(hints, playerCount) {
+  return hints && Object.keys(hints).length >= playerCount;
+}

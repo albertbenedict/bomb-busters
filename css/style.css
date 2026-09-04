@@ -894,3 +894,65 @@ li:last-child { border-bottom: none; }
   color: var(--bg);
 }
 .btn-equipment:disabled { opacity: 0.45; }
+
+/* Hints — factual blue, strict order, still guessable */
+.hints-pool, .hints-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  min-height: 28px;
+}
+.hints-list { margin-top: 0.35rem; }
+.hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+.hint-chip {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1.5px dashed var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 0.18rem 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+.hint-chip--pending {
+  opacity: 0.6;
+  border-style: dashed;
+  color: var(--text-muted);
+}
+.hint-chip--next {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+  border-style: solid;
+}
+.hint-chip--wrong {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.hint-actions:empty { display: none; }
+.hint-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+.wire--hintable {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  cursor: pointer;
+  animation: hintPulse 1.2s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%,100% { box-shadow: 0 2px 0 var(--border-soft), 0 4px 12px rgba(0,0,0,0.06); }
+  50% { box-shadow: 0 2px 0 var(--border), 0 6px 16px rgba(0,0,0,0.12); }
+}

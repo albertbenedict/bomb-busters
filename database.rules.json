@@ -47,6 +47,19 @@
               "$other": { ".validate": false }
             }
           },
+          "hints": {
+            "$pid": {
+              ".validate": "newData.hasChildren(['position', 'value', 'guessKey', 'type', 'at'])",
+              "position": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "value": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 12" },
+              "guessKey": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 12" },
+              "type": { ".validate": "newData.val() == 'blue'" },
+              "at": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          },
+          "hintOrder": { ".validate": true },
+          "hintIndex": { ".validate": true },
           "$other": { ".validate": false }
         },
         "hands": { ".validate": true }
