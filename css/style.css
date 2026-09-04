@@ -964,3 +964,45 @@ li:last-child { border-bottom: none; }
   0%,100% { box-shadow: 0 2px 0 var(--border-soft), 0 4px 12px rgba(0,0,0,0.06); }
   50% { box-shadow: 0 2px 0 var(--border), 0 6px 16px rgba(0,0,0,0.12); }
 }
+/* Wire Tracker — public board */
+.wire-tracker {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+.tracker-cell {
+  border: 1.5px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.4rem 0.2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+.tracker-cell--done {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+.tracker-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.tracker-dot {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.tracker-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.tracker-cell--done .tracker-count { opacity: 1; }
+@media (max-width: 520px) {
+  .wire-tracker { grid-template-columns: repeat(4, 1fr); }
+}

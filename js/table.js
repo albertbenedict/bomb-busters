@@ -3,7 +3,7 @@ import {
   ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
-import { buildDeck, dealHands, generateEquipment } from "./game-logic.js";
+import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -221,6 +221,25 @@ function render(session) {
   document.getElementById("yellow-count").textContent = `${yellowCut} / ${session.config.yellowCount ?? 0}`;
   document.getElementById("red-count").textContent = `${redCut} / ${session.config.redCount ?? 0}`;
 
+  // Wire Tracker — public board which numbers still in play (● fully cut 4/4, ○ still in play)
+  const trackerEl = document.getElementById("wire-tracker");
+  if (trackerEl) {
+    trackerEl.innerHTML = "";
+    const totals = getKeyTotals(session.config);
+    const rawCutLog = session.public.cutLog || {};
+    const max = session.config.wireCount || 12;
+    for (let v = 1; v <= max; v++) {
+      const total = totals[v] ?? 4;
+      const cut = cutCountForKey(rawCutLog, v);
+      const done = cut >= total;
+      const cell = document.createElement("div");
+      cell.className = "tracker-cell" + (done ? " tracker-cell--done" : "");
+      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span><span class="tracker-count">${cut}/${total}</span>`;
+      cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play`;
+      trackerEl.appendChild(cell);
+    }
+  }
+
   const lobbyBadge = document.getElementById("lobby-badge");
   const finished = session.status === "won" || session.status === "lost";
   lobbyBadge.classList.toggle("hidden", finished);
@@ -270,8 +289,11 @@ function render(session) {
     const hintIndex = session.public.hintIndex ?? hintOrder.length;
     const totalPlayers = Object.keys(players).length;
     const hintCount = Object.keys(hints).length;
-    const isHintPhase = session.status === "in_progress" && hintCount < totalPlayers && totalPlayers >= 2;
-    if (hintCount === 0 && totalPlayers >= 2 && session.status === "lobby") {
+    const hintsEnabled = session.config?.hintsEnabled ?? true;
+    const isHintPhase = hintsEnabled && session.status === "in_progress" && hintCount < totalPlayers && totalPlayers >= 2;
+    if (!hintsEnabled) {
+      hintsEl.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints disabled for this game.</span>`;
+    } else if (hintCount === 0 && totalPlayers >= 2 && session.status === "lobby") {
       hintsEl.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints will appear after deal — one blue per player in turn order.</span>`;
     } else {
       // Factual hints + wrong auto-hints unified
@@ -328,6 +350,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   const deck = buildDeck(session.config);
   const hands = dealHands(deck, playerIds);
   const equipment = generateEquipment(playerIds.length, session.config.wireCount);
+  const hintsEnabled = session.config?.hintsEnabled ?? true;
 
   const updates = {
     status: "in_progress",
@@ -346,9 +369,15 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   updates["public/validationTokens"] = {};
   updates["public/detonator/position"] = 0;
   updates["public/equipment"] = equipment;
-  updates["public/hints"] = {};
-  updates["public/hintOrder"] = playerIds;
-  updates["public/hintIndex"] = 0;
+  if (hintsEnabled) {
+    updates["public/hints"] = {};
+    updates["public/hintOrder"] = playerIds;
+    updates["public/hintIndex"] = 0;
+  } else {
+    updates["public/hints"] = {};
+    updates["public/hintOrder"] = [];
+    updates["public/hintIndex"] = 0;
+  }
 
   await update(ref(db, `sessions/${code}`), updates);
 });

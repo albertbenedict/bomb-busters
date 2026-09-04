@@ -70,12 +70,13 @@ let hasRenderedHand = false;
 function render() {
   const myHand = (session.hands && session.hands[playerId]) || [];
 
+  const hintsEnabled = session.config?.hintsEnabled ?? true;
   const hints = session.public.hints || {};
   const hintOrder = session.public.hintOrder || session.turnOrder || [];
   const hintIndex = session.public.hintIndex ?? 0;
   const playerCount = Object.keys(session.public.players || {}).length;
   const hintCount = Object.keys(hints).length;
-  const isHintPhase = session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
+  const isHintPhase = hintsEnabled && session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
   const isMyHintTurn = isHintPhase && hintOrder[hintIndex] === playerId && canGiveHint(hints, playerId);
 
   const handEl = document.getElementById("hand");
@@ -366,9 +367,23 @@ function renderHints() {
   const list = document.getElementById("hints-list");
   if (!list || !session) return;
   list.innerHTML = "";
+  const hintsEnabled = session.config?.hintsEnabled ?? true;
   const hints = session.public.hints || {};
   const infoTokens = session.public.infoTokens || {};
   const players = session.public.players || {};
+  if (!hintsEnabled) {
+    list.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints disabled for this game.</span>`;
+    // Still show wrong reveals even when hints disabled? Keep was hints visible as deduction help
+    Object.values(infoTokens).forEach((tok) => {
+      const owner = players[tok.ownerId];
+      const chip = document.createElement("span");
+      chip.className = "hint-chip hint-chip--wrong";
+      chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+      chip.title = `Wrong guess revealed`;
+      list.appendChild(chip);
+    });
+    return;
+  }
   // Factual hints in turnOrder
   const order = session.public.hintOrder || session.turnOrder || Object.keys(players);
   order.forEach((pid) => {
@@ -405,12 +420,14 @@ function renderHintActions(isMyHintTurn) {
   const wrap = document.getElementById("hint-actions");
   if (!wrap || !session) return;
   wrap.innerHTML = "";
+  const hintsEnabled = session.config?.hintsEnabled ?? true;
+  if (!hintsEnabled) return;
   const hints = session.public.hints || {};
   const hintOrder = session.public.hintOrder || session.turnOrder || [];
   const hintIndex = session.public.hintIndex ?? 0;
   const playerCount = Object.keys(session.public.players || {}).length;
   const hintCount = Object.keys(hints).length;
-  const isHintPhase = session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
+  const isHintPhase = hintsEnabled && session.status === "in_progress" && hintCount < playerCount && playerCount >= 2;
   if (!isHintPhase) return;
   if (isMyHintTurn) {
     const info = document.createElement("div");
@@ -431,6 +448,7 @@ function renderHintActions(isMyHintTurn) {
 
 async function submitHint(position) {
   if (!session || session.status !== "in_progress") return;
+  if (!(session.config?.hintsEnabled ?? true)) return;
   const hints = session.public.hints || {};
   const hintOrder = session.public.hintOrder || session.turnOrder || [];
   const hintIndex = session.public.hintIndex ?? 0;

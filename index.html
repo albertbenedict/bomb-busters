@@ -44,6 +44,10 @@
           <input id="red-count" type="number" value="2" min="1" max="3" inputmode="numeric" aria-label="Red wire count">
         </div>
       </label>
+      <label class="field" style="grid-column: 1 / -1;">
+        <span class="field-label" style="gap:0.5rem;"><input id="hints-enabled" type="checkbox" checked style="width:auto; accent-color: var(--text);"> Hints phase <span class="field-hint">strict turn-order, blue only</span></span>
+        <span class="muted" style="font-size:0.78rem;">One factual blue hint per player before guessing — disable to skip.</span>
+      </label>
     </div>
     <button id="host-btn" class="btn-primary">Host game <span aria-hidden="true">→</span></button>
     <p id="host-error" class="form-error hidden"></p>
@@ -114,12 +118,13 @@
     if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1); // keep even 2..6
     let redCount = Number(document.getElementById("red-count").value) || 2;
     redCount = Math.max(1, Math.min(3, Math.round(redCount)));
+    const hintsEnabled = document.getElementById("hints-enabled")?.checked ?? true;
     hostError.classList.add("hidden");
     hostError.textContent = "";
     hostBtn.disabled = true;
     hostBtn.textContent = "Creating…";
     try {
-      const code = await createSession({ wireCount, detonatorMax, yellowCount, redCount });
+      const code = await createSession({ wireCount, detonatorMax, yellowCount, redCount, hintsEnabled });
       if (!code) throw new Error("Empty code returned");
       location.href = `table.html?session=${code}`;
     } catch (err) {
