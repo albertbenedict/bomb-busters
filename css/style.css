@@ -894,6 +894,24 @@ li:last-child { border-bottom: none; }
   color: var(--bg);
 }
 .btn-equipment:disabled { opacity: 0.45; }
+.value-grid button.blocked,
+.value-grid__yellow button.blocked {
+  opacity: 0.35;
+  border-style: dashed;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  position: relative;
+}
+.value-grid button.blocked::after,
+.value-grid__yellow button.blocked::after {
+  content: "✕";
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 0.62rem;
+  opacity: 0.7;
+}
 
 /* Hints — factual blue, strict order, still guessable */
 .hints-pool, .hints-list {

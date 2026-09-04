@@ -287,6 +287,7 @@ function renderTargets(canAct) {
 
 // Inline value picker — numbers plus a Yellow option. Red is never
 // guessable here; it only clears via the "reveal red wires" action.
+// Rule: you can only guess a value you actually hold (uncut) in your own hand.
 function renderGuessComposer() {
   const composer = document.getElementById("guess-composer");
   if (!activeGuess) {
@@ -297,29 +298,42 @@ function renderGuessComposer() {
   document.getElementById("guess-target-label").textContent =
     `${activeGuess.targetName} · wire ${activeGuess.position + 1}`;
 
+  const myHand = (session.hands && session.hands[playerId]) || [];
+  const haveKeys = new Set();
+  myHand.forEach((w) => {
+    if (!w.cut && w.guessKey != null) haveKeys.add(String(w.guessKey));
+  });
+
   const optionsEl = document.getElementById("guess-options");
   optionsEl.innerHTML = "";
   const wireCount = session.config.wireCount;
   for (let value = 1; value <= wireCount; value++) {
+    const have = haveKeys.has(String(value));
     const btn = document.createElement("button");
-    btn.textContent = value;
-    btn.addEventListener("click", () => submitGuess(value));
+    btn.textContent = have ? value : `${value} ✕`;
+    btn.disabled = !have;
+    btn.className = have ? "" : "blocked";
+    btn.title = have ? `You have ${value}s — can guess` : `You have no uncut ${value}s`;
+    if (have) btn.addEventListener("click", () => submitGuess(value));
     optionsEl.appendChild(btn);
   }
+  const haveYellow = haveKeys.has("yellow");
   const yellowRow = document.getElementById("guess-yellow-row");
   if (yellowRow) {
     yellowRow.innerHTML = "";
     const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = "Yellow — any yellow wire";
-    yellowBtn.className = "option-yellow";
-    yellowBtn.addEventListener("click", () => submitGuess("yellow"));
+    yellowBtn.textContent = haveYellow ? "Yellow — any yellow wire" : "Yellow ✕ (none in hand)";
+    yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
+    yellowBtn.disabled = !haveYellow;
+    yellowBtn.title = haveYellow ? "You have yellows — can guess" : "You have no uncut yellows";
+    if (haveYellow) yellowBtn.addEventListener("click", () => submitGuess("yellow"));
     yellowRow.appendChild(yellowBtn);
   } else {
-    // Fallback if old DOM (should not happen)
     const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = "Yellow";
-    yellowBtn.className = "option-yellow";
-    yellowBtn.addEventListener("click", () => submitGuess("yellow"));
+    yellowBtn.textContent = haveYellow ? "Yellow" : "Yellow ✕";
+    yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
+    yellowBtn.disabled = !haveYellow;
+    if (haveYellow) yellowBtn.addEventListener("click", () => submitGuess("yellow"));
     optionsEl.appendChild(yellowBtn);
   }
 
@@ -569,16 +583,16 @@ async function performSoloCut(guessKey) {
   const myHand = session.hands[playerId];
   const stamp = Date.now();
   const updates = {};
-
-  myHand.forEach((wire, i) => {
-    if (wire.guessKey === guessKey && !wire.cut) {
-      updates[`hands/${playerId}/${i}/cut`] = true;
-      updates[`public/cutLog/log_${stamp}_${i}`] = {
-        ownerId: playerId, position: i, type: wire.type, value: wire.value, guessKey,
-        guessedBy: playerId, result: "cut", action: "solo",
-      };
-    }
-  });
+  // One per turn: cut only a single wire of that value, even if you hold multiple
+  const idx = myHand.findIndex((wire) => String(wire.guessKey) === String(guessKey) && !wire.cut);
+  if (idx !== -1) {
+    const wire = myHand[idx];
+    updates[`hands/${playerId}/${idx}/cut`] = true;
+    updates[`public/cutLog/log_${stamp}`] = {
+      ownerId: playerId, position: idx, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
+      guessedBy: playerId, result: "cut", action: "solo",
+    };
+  }
   updates[`public/validationTokens/${guessKey}`] = true;
   updates.currentTurn = nextTurn();
 
