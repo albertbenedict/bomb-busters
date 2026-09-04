@@ -61,7 +61,7 @@ function showTableError(message, hint) {
   tableErrorEl.style.flexDirection = "column";
 }
 
-// Room code — copy button (presentation only, no game logic)
+// Room code
 const copyBtn = document.getElementById("copy-code-btn");
 if (copyBtn) {
   copyBtn.addEventListener("click", async () => {
@@ -73,7 +73,6 @@ if (copyBtn) {
       copyBtn.classList.add("copied");
       setTimeout(() => { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("copied"); }, 1600);
     } catch {
-      // Fallback — select text
       const sel = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(roomCodeEl);
@@ -118,55 +117,66 @@ if (code) {
   });
 }
 
-// Tracks the previous detonator position so the "pulse" animation on the
-// newest dot only plays when a wrong guess JUST happened — render() fires
-// on every Firebase update, not just detonator changes.
 let prevDetonatorPosition = null;
 
 function render(session) {
-  const playersEl = document.getElementById("players");
-  playersEl.innerHTML = "";
   const players = session.public.players || {};
-  Object.entries(players).forEach(([id, p]) => {
+  const slots = document.querySelectorAll(".board-player-slot");
+  const hiddenList = document.getElementById("players");
+  if (hiddenList) hiddenList.innerHTML = "";
+  const entries = Object.entries(players).slice(0, 4);
+  slots.forEach((s) => (s.innerHTML = ""));
+  entries.forEach(([id, p], idx) => {
     const isActive = session.currentTurn === id && session.status === "in_progress";
-    const li = document.createElement("li");
-    li.className = "player-row" + (isActive ? " player-row--active" : "");
-    const left = document.createElement("div");
-    left.style.display = "flex";
-    left.style.alignItems = "center";
-    left.style.gap = "0.5rem";
-    left.style.flexWrap = "wrap";
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = `${p.name} · ${p.wireCount} wires`;
-    nameSpan.style.fontWeight = isActive ? "800" : "600";
-    left.appendChild(nameSpan);
-    if (p.connected === false) {
-      const off = document.createElement("span");
-      off.className = "badge badge--muted";
-      off.textContent = "Offline";
-      off.style.fontSize = "0.6rem";
-      left.appendChild(off);
-    }
+    const card = document.createElement("div");
+    card.className = "card" + (isActive ? " card--active" : "");
+    card.style.marginBottom = "0";
+    const head = document.createElement("div");
+    head.className = "card-head";
+    head.style.marginBottom = "0.4rem";
+    const title = document.createElement("strong");
+    title.textContent = p.name;
+    title.style.fontWeight = isActive ? "800" : "600";
+    head.appendChild(title);
     if (isActive) {
       const badge = document.createElement("span");
       badge.className = "badge";
       badge.textContent = "Turn";
-      left.appendChild(badge);
+      head.appendChild(badge);
     }
-    li.appendChild(left);
-
+    card.appendChild(head);
+    const meta = document.createElement("div");
+    meta.className = "muted";
+    meta.style.fontSize = "0.82rem";
+    meta.textContent = `${p.wireCount} wires`;
+    if (p.connected === false) meta.textContent += " · Offline";
+    card.appendChild(meta);
     const kickBtn = document.createElement("button");
     kickBtn.textContent = "Kick";
     kickBtn.className = "danger";
-    kickBtn.style.padding = "0.25rem 0.6rem";
-    kickBtn.style.fontSize = "0.8rem";
-    kickBtn.style.borderWidth = "1px";
+    kickBtn.style.padding = "0.2rem 0.5rem";
+    kickBtn.style.fontSize = "0.75rem";
+    kickBtn.style.marginTop = "0.4rem";
     kickBtn.style.opacity = "0.72";
     kickBtn.onclick = () => kickPlayer(id, p.name);
-    li.appendChild(kickBtn);
-
-    playersEl.appendChild(li);
+    card.appendChild(kickBtn);
+    const slot = slots[idx];
+    if (slot) slot.appendChild(card);
+    if (hiddenList) {
+      const li = document.createElement("li");
+      li.textContent = p.name;
+      hiddenList.appendChild(li);
+    }
   });
+
+  for (let i = entries.length; i < 4; i++) {
+    const slot = slots[i];
+    if (slot) slot.innerHTML = `<div class="card" style="opacity:0.45; text-align:center;"><p class="muted">Empty</p><p class="muted" style="font-size:0.75rem;">Waiting for player</p></div>`;
+  }
+
+  if (Object.keys(players).length > 4) {
+    console.warn("More than 4 players — limited to 4 per your note");
+  }
 
   const detonator = session.public.detonator;
   const detonatorEl = document.getElementById("detonator");
@@ -180,7 +190,7 @@ function render(session) {
   detonatorBadge.classList.toggle("badge--danger", danger);
   detonatorBadge.classList.toggle("badge--muted", !danger);
 
-  // Meter — visual escalation, not just Safe→Danger flip
+
   const meterEl = document.getElementById("detonator-meter");
   if (meterEl) {
     meterEl.innerHTML = "";
@@ -193,7 +203,6 @@ function render(session) {
       if (justIncreased && i === detonator.position - 1) dot.classList.add("pulse");
       meterEl.appendChild(dot);
     }
-    // Bar under dots
     const bar = document.createElement("div");
     bar.className = "detonator-bar";
     bar.style.width = "100%";
@@ -221,7 +230,7 @@ function render(session) {
   document.getElementById("yellow-count").textContent = `${yellowCut} / ${session.config.yellowCount ?? 0}`;
   document.getElementById("red-count").textContent = `${redCut} / ${session.config.redCount ?? 0}`;
 
-  // Wire Tracker — public board which numbers still in play (● fully cut 4/4, ○ still in play)
+  // Wire Tracker 
   const trackerEl = document.getElementById("wire-tracker");
   if (trackerEl) {
     trackerEl.innerHTML = "";
@@ -234,7 +243,7 @@ function render(session) {
       const done = cut >= total;
       const cell = document.createElement("div");
       cell.className = "tracker-cell" + (done ? " tracker-cell--done" : "");
-      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span><span class="tracker-count">${cut}/${total}</span>`;
+      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span>`;
       cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play`;
       trackerEl.appendChild(cell);
     }
@@ -256,30 +265,34 @@ function render(session) {
     statusEl.className = "banner hidden";
   }
 
-  // Equipment pool — locked/dimmed, unlocked-unused highlighted, used struck through
+  // Equipment pool 
   const eqEl = document.getElementById("equipment-pool");
   if (eqEl) {
     eqEl.innerHTML = "";
     const equipment = session.public.equipment || {};
     const cutLog = session.public.cutLog || {};
     const entries = Object.entries(equipment);
-    if (entries.length === 0) {
-      eqEl.innerHTML = `<span class="muted" style="font-size:0.82rem;">No equipment — start a game to generate ${Object.keys(players).length || "2–5"} cards.</span>`;
-    } else {
-      entries.forEach(([id, e]) => {
+    for (let i = 0; i < 5; i++) {
+      const entry = entries[i];
+      const chip = document.createElement("span");
+      if (!entry) {
+        chip.className = "eq-chip eq-chip--locked";
+        chip.textContent = "—";
+        chip.title = "Equipment slot — will be assigned at deal";
+      } else {
+        const [, e] = entry;
         const cnt = Object.values(cutLog).filter((c) => c.guessKey === e.unlockValue).length;
         const isUsed = !!e.used;
         const isUnlocked = !isUsed && cnt >= 2;
-        const chip = document.createElement("span");
         chip.className = "eq-chip" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
         chip.textContent = isUsed ? `Used · ${e.unlockValue}s` : isUnlocked ? `Ready · ${e.unlockValue}s` : `Locked · ${e.unlockValue}s`;
         chip.title = isUsed ? `Used (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked — defuse one mistake` : `Needs 2 cuts of ${e.unlockValue}s (${cnt}/2)`;
-        eqEl.appendChild(chip);
-      });
+      }
+      eqEl.appendChild(chip);
     }
   }
 
-  // Hints — one blue factual per player, strict turnOrder + target-only wrong reveals
+  // Hints
   const hintsEl = document.getElementById("hints-pool");
   if (hintsEl) {
     hintsEl.innerHTML = "";
@@ -296,7 +309,6 @@ function render(session) {
     } else if (hintCount === 0 && totalPlayers >= 2 && session.status === "lobby") {
       hintsEl.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints will appear after deal — one blue per player in turn order.</span>`;
     } else {
-      // Factual hints + wrong auto-hints unified
       hintOrder.forEach((pid) => {
         const p = players[pid];
         if (!p) return;
@@ -314,7 +326,6 @@ function render(session) {
         }
         hintsEl.appendChild(chip);
       });
-      // Wrong reveals as "was" chips (target only)
       Object.values(infoTokens).forEach((tok) => {
         const owner = players[tok.ownerId];
         const chip = document.createElement("span");
@@ -393,11 +404,9 @@ async function kickPlayer(playerId, name) {
   updates[`public/hints/${playerId}`] = null;
   const order = (session.turnOrder || []).filter((id) => id !== playerId);
   updates["turnOrder"] = order;
-  // Keep hintOrder in sync — strict sequential hints
   const hintOrder = (session.public?.hintOrder || session.turnOrder || []).filter((id) => id !== playerId);
   updates["public/hintOrder"] = hintOrder;
   if (session.public?.hints && session.public.hints[playerId]) {
-    // if kicked player was next to hint, advance hintIndex if needed
     const idx = (session.public.hintOrder || []).indexOf(playerId);
     const curIdx = session.public.hintIndex ?? 0;
     if (idx !== -1 && idx < curIdx) updates["public/hintIndex"] = Math.max(0, curIdx - 1);

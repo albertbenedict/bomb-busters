@@ -9,7 +9,7 @@ const code = params.get("session");
 const playerId = params.get("player");
 
 let session = null;
-let activeGuess = null; // { targetId, targetName, position } while the value picker is open
+let activeGuess = null;
 
 if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
   const el = document.getElementById("turn-indicator");
@@ -60,10 +60,6 @@ function wireLabel(wire) {
   return "R";
 }
 
-// Track previous hand-cut state (to animate only wires that just transitioned
-// to cut) and whether the hand has painted at least once (so the entrance
-// animation plays only on first paint, not on every render() call — render()
-// fires on every Firebase update, not just ones relevant to your own hand).
 let prevHandCut = [];
 let hasRenderedHand = false;
 
@@ -88,7 +84,7 @@ function render() {
     let extra = "";
     if (!wasCut && nowCut) extra = " wire--cutting";
     else if (!hasRenderedHand) extra = " wire--enter";
-    // During hint phase, make own blue wires hintable
+    // make own blue wires hintable
     const hintable = isMyHintTurn && wire.type === "blue" && !wire.cut;
     div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra + (hintable ? " wire--hintable" : "");
     div.textContent = wireLabel(wire);
@@ -108,9 +104,8 @@ function render() {
     countBadge.textContent = myHand.length ? `${remaining} left · ${myHand.length} total` : "—";
   }
 
-  // Hint phase overrides normal turn banner
+
   const canAct = !isHintPhase && session.currentTurn === playerId && session.status === "in_progress";
-  // Turn banner — prominent, names whose turn it is
   const banner = document.getElementById("turn-banner");
   const bannerLabel = document.getElementById("turn-banner-label");
   const turnEl = document.getElementById("turn-indicator");
@@ -165,11 +160,9 @@ function render() {
     }
   }
 
-  // During hint phase, disable normal guess actions
   const effectiveCanAct = isHintPhase ? false : canAct;
   renderTargets(effectiveCanAct);
   renderGuessComposer(effectiveCanAct);
-  // Hints render inside guess composer area? Keep separate
   renderHints();
   renderHintActions(isMyHintTurn);
 
@@ -186,16 +179,12 @@ function render() {
 
   renderEquipment(canAct);
 
-  // Guess result — brief Correct! / Wrong! for both guesser and target
   renderGuessResult();
 
-  // I'm the target of a live guess — only my device can check it, since
-  // only I legitimately know my own hand's real values.
   if (session.pendingGuess && session.pendingGuess.target === playerId) {
     resolvePendingGuess(session.pendingGuess);
   }
 
-  // My own guess just got resolved by the target's device — react to it.
   if (session.lastOutcome && session.lastOutcome.by === playerId && !session.lastOutcome.acknowledged) {
     reactToOutcome(session.lastOutcome);
   }
@@ -286,9 +275,6 @@ function renderTargets(canAct) {
   });
 }
 
-// Inline value picker — numbers plus a Yellow option. Red is never
-// guessable here; it only clears via the "reveal red wires" action.
-// Rule: you can only guess a value you actually hold (uncut) in your own hand.
 function renderGuessComposer() {
   const composer = document.getElementById("guess-composer");
   if (!activeGuess) {
@@ -493,9 +479,9 @@ function renderGuessResult() {
   const el = document.getElementById("guess-result");
   if (!el || !session) return;
   const outcome = session.lastOutcome;
-  // Show for 4s after lastOutcome.at — visible to guesser, target, and spectators
+  // Show for 4s after lastOutcome.at 
   if (outcome && outcome.at && Date.now() - outcome.at < 4200) {
-    if (outcome.at === lastOutcomeAt) return; // already showing this one
+    if (outcome.at === lastOutcomeAt) return; 
     lastOutcomeAt = outcome.at;
     const guesser = session.public.players?.[outcome.by]?.name || "Someone";
     const target = session.public.players?.[outcome.target]?.name || "teammate";
@@ -508,9 +494,7 @@ function renderGuessResult() {
     if (resultHideTimer) clearTimeout(resultHideTimer);
     resultHideTimer = setTimeout(() => el.classList.add("hidden"), 3800);
   } else if (!outcome || Date.now() - (outcome.at || 0) >= 4200) {
-    // keep last shown until timeout, don't flicker
     if (el && !el.classList.contains("hidden") && outcome && outcome.at === lastOutcomeAt) {
-      // let timer hide it
     } else if (el) {
       el.classList.add("hidden");
     }
@@ -525,20 +509,16 @@ function submitGuess(guessKey) {
   });
 }
 
-// Runs only on the target's device — this is the one place a wire's
-// real value ever gets compared, and it happens on the device that's
-// already allowed to know it.
 async function resolvePendingGuess(guess) {
   const myHand = session.hands[playerId];
   const wire = myHand[guess.position];
 
   if (!wire || wire.cut) {
-    // Already resolved (stale click, or the UI just hasn't caught up yet) — no-op.
     await update(ref(db, `sessions/${code}`), { pendingGuess: null });
     return;
   }
 
-  // Normalize for yellow — both should be "yellow" string, blues are numbers (handle string/number coerce)
+  // Normalize for yellow
   const correct = String(wire.guessKey) === String(guess.guessKey);
   const stamp = Date.now();
   console.log("[resolve] guess", guess, "wire", wire, "correct", correct);
@@ -578,8 +558,6 @@ async function resolvePendingGuess(guess) {
   await update(ref(db, `sessions/${code}`), updates);
 }
 
-// Runs on the guesser's device — the only device that knows which of
-// its own wires matches the guessed key.
 async function reactToOutcome(outcome) {
   const updates = { "lastOutcome/acknowledged": true };
 
@@ -619,8 +597,6 @@ async function performSoloCut(guessKey) {
   checkWin();
 }
 
-// Cuts every remaining red wire in hand at once — safe by definition,
-// since it's only offered once 100% of what's left in the hand is red.
 async function revealRedWires() {
   const myHand = session.hands[playerId];
   const stamp = Date.now();

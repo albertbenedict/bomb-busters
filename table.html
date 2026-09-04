@@ -6,94 +6,103 @@
 <title>Bomb Busters — table</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="table-page">
 <nav>
   <span class="display nav-brand"><span class="nav-dot" aria-hidden="true"></span> Bomb Busters</span>
   <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
 </nav>
 
-<main>
-  <div class="card center room-share">
+<main class="table-board">
+  <!-- Top: 5 equipment slots (always 5, per your note) -->
+  <section class="board-equipment" aria-label="Equipment">
+    <div id="equipment-pool" class="equipment-pool equipment-pool--board"></div>
+  </section>
+
+  <!-- Room code bar (long white) -->
+  <section class="board-code card center room-share">
     <p class="muted" style="margin-bottom:0.35rem;">Share this room code</p>
     <div class="room-code-wrap">
       <div class="room-code" id="room-code">----</div>
       <button id="copy-code-btn" class="btn-copy" aria-label="Copy room code" title="Copy code">⧉ Copy</button>
     </div>
-    <p class="muted" style="font-size:0.8rem; margin-top:0.4rem;">Players join at the lobby with this code.</p>
     <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center; flex-direction:column;"></p>
     <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
-  </div>
+  </section>
 
-  <div class="card">
-    <div class="card-head">
-      <h3>Detonator</h3>
-      <span class="badge badge--muted" id="detonator-badge">Safe</span>
+  <!-- Central area: 4 players around bomb + tracker -->
+  <section class="board-center">
+    <!-- Left column: 2 players -->
+    <div class="board-players board-players--left">
+      <div class="board-player-slot" data-slot="0"></div>
+      <div class="board-player-slot" data-slot="2"></div>
     </div>
-    <div class="detonator" id="detonator" aria-hidden="true">0 / 0</div>
-    <div id="detonator-meter" class="detonator-meter" aria-hidden="true"></div>
-    <div id="detonator-label" class="muted" style="font-size:0.82rem; margin-top:0.35rem;"></div>
-  </div>
 
-  <div class="card stat-row card--compact">
-    <div class="stat">
-      <div class="stat-label">Wires cut</div>
-      <div class="stat-value" id="cut-count">0</div>
-    </div>
-    <div class="stat-divider" aria-hidden="true"></div>
-    <div class="stat">
-      <div class="stat-label" style="color:var(--yellow);">Yellow</div>
-      <div class="stat-value" id="yellow-count" style="color:var(--yellow);">0 / 0</div>
-    </div>
-    <div class="stat-divider" aria-hidden="true"></div>
-    <div class="stat">
-      <div class="stat-label" style="color:var(--danger);">Red</div>
-      <div class="stat-value" id="red-count" style="color:var(--danger);">0 / 0</div>
-    </div>
-  </div>
+    <!-- Middle: tracker (top) + bomb (center) -->
+    <div class="board-middle">
+      <div class="board-tracker card">
+        <div class="card-head" style="margin-bottom:0.4rem;">
+          <h3 style="font-size:0.95rem;">Wire Tracker</h3>
+          <span class="badge badge--muted">Board</span>
+        </div>
+        <div id="wire-tracker" class="wire-tracker wire-tracker--dots"></div>
+      </div>
 
-  <div class="card">
-    <div class="card-head">
-      <h3>Equipment</h3>
-      <span class="badge badge--muted">Defuse</span>
+      <div class="board-bomb">
+        <div class="bomb-graphic" aria-hidden="true">
+          <div class="bomb-sticks">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="bomb-fuse">◉</div>
+          <div class="bomb-dial" id="bomb-dial">
+            <div class="bomb-dial__label" id="detonator">0 / 0</div>
+            <div id="detonator-meter" class="detonator-meter detonator-meter--dial" aria-hidden="true"></div>
+            <div class="badge badge--muted" id="detonator-badge" style="margin-top:0.35rem;">Safe</div>
+          </div>
+        </div>
+        <div id="detonator-label" class="muted" style="font-size:0.8rem; margin-top:0.4rem; text-align:center;"></div>
+      </div>
     </div>
-    <div id="equipment-pool" class="equipment-pool"></div>
-    <p class="muted" style="font-size:0.8rem; margin:0.4rem 0 0;">Unlocks after 2 cuts of its value — use on your turn to defuse one mistake (free, doesn't end turn).</p>
-  </div>
 
-  <div class="card">
-    <div class="card-head">
-      <h3>Hints</h3>
-      <span class="badge badge--muted" id="hints-badge">Factual</span>
+    <!-- Right column: 2 players -->
+    <div class="board-players board-players--right">
+      <div class="board-player-slot" data-slot="1"></div>
+      <div class="board-player-slot" data-slot="3"></div>
     </div>
-    <div id="hints-pool" class="hints-pool"></div>
-    <p class="muted" style="font-size:0.8rem; margin:0.4rem 0 0;">One blue hint per player, same order as turns. Wrong guesses also reveal as <em>was</em> hints.</p>
-  </div>
+  </section>
 
-  <div class="card">
-    <div class="card-head">
-      <h3>Wire Tracker</h3>
-      <span class="badge badge--muted">Board</span>
-    </div>
-    <div id="wire-tracker" class="wire-tracker"></div>
-    <p class="muted" style="font-size:0.8rem; margin:0.4rem 0 0;">● = all 4 cut, ○ = still in play — deduction board from the box.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <h3>Team</h3>
-      <span class="badge badge--muted" id="lobby-badge">Lobby</span>
-    </div>
+  <!-- Hidden original team list for JS fallback / accessibility — rendered into slots -->
+  <section class="card hidden" aria-hidden="true">
     <ul id="players"></ul>
-    <p id="lobby-hint" class="muted">Waiting for 2–5 players to join with the room code above.</p>
+    <span id="lobby-badge" class="hidden"></span>
+    <p id="lobby-hint" class="hidden"></p>
+  </section>
+
+  <!-- Bottom: hints + status -->
+  <section class="board-bottom">
+    <div class="card">
+      <div class="card-head">
+        <h3>Hints</h3>
+        <span class="badge badge--muted" id="hints-badge">Factual</span>
+      </div>
+      <div id="hints-pool" class="hints-pool"></div>
+      <p class="muted" style="font-size:0.8rem; margin:0.4rem 0 0;">One blue hint per player, same order as turns. Wrong guesses also reveal as <em>was</em> hints.</p>
+    </div>
+  </section>
+
+  <!-- Stats hidden but kept for JS (cut counts) -->
+  <div class="hidden" aria-hidden="true">
+    <span id="cut-count">0</span><span id="yellow-count">0</span><span id="red-count">0</span>
   </div>
 
-  <button id="start-btn" class="btn-primary hidden">Start game</button>
-  <div class="host-controls" aria-label="Host controls">
-    <button id="reset-btn" class="btn-secondary btn-host hidden">↺ Reset to lobby</button>
-    <button id="end-btn" class="btn-ghost hidden">End session</button>
+  <div class="board-actions">
+    <button id="start-btn" class="btn-primary hidden">Start game</button>
+    <div class="host-controls" aria-label="Host controls">
+      <button id="reset-btn" class="btn-secondary btn-host hidden">↺ Reset to lobby</button>
+      <button id="end-btn" class="btn-ghost hidden">End session</button>
+    </div>
+    <p id="host-hint" class="muted hidden" style="margin-top:0.5rem; font-size:0.8rem;">Reset keeps players but clears wires. End deletes the room.</p>
+    <div id="status" class="banner hidden"></div>
   </div>
-  <p id="host-hint" class="muted hidden" style="margin-top:0.5rem; font-size:0.8rem;">Reset keeps players but clears wires. End deletes the room (players will see “No session”).</p>
-  <div id="status" class="banner hidden"></div>
 </main>
 
 <script type="module" src="js/table.js"></script>
