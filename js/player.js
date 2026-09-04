@@ -310,7 +310,7 @@ function renderGuessComposer() {
   for (let value = 1; value <= wireCount; value++) {
     const have = haveKeys.has(String(value));
     const btn = document.createElement("button");
-    btn.textContent = have ? value : `${value} ✕`;
+    btn.textContent = value;
     btn.disabled = !have;
     btn.className = have ? "" : "blocked";
     btn.title = have ? `You have ${value}s — can guess` : `You have no uncut ${value}s`;
@@ -322,7 +322,7 @@ function renderGuessComposer() {
   if (yellowRow) {
     yellowRow.innerHTML = "";
     const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = haveYellow ? "Yellow — any yellow wire" : "Yellow ✕ (none in hand)";
+    yellowBtn.textContent = "Yellow — any yellow wire";
     yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
     yellowBtn.disabled = !haveYellow;
     yellowBtn.title = haveYellow ? "You have yellows — can guess" : "You have no uncut yellows";
@@ -330,7 +330,7 @@ function renderGuessComposer() {
     yellowRow.appendChild(yellowBtn);
   } else {
     const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = haveYellow ? "Yellow" : "Yellow ✕";
+    yellowBtn.textContent = "Yellow";
     yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
     yellowBtn.disabled = !haveYellow;
     if (haveYellow) yellowBtn.addEventListener("click", () => submitGuess("yellow"));
