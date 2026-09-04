@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, getKeyTotals, cutCountForKey } from "./game-logic.js";
+import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -584,34 +584,16 @@ async function performSoloCut(guessKey) {
   const stamp = Date.now();
   const updates = {};
 
-  const totals = getKeyTotals(session.config);
-  const total = totals[guessKey] ?? 4;
-  const remaining = total - cutCountForKey(session.public.cutLog, guessKey);
-  const inHand = myHand.filter((w) => String(w.guessKey) === String(guessKey) && !w.cut).length;
-
-  // All 4 from start (remaining === total) → bulk cut all at once
-  // Has all remaining but not all 4 (remaining < total) → single per turn
-  if (remaining === total && inHand === total) {
-    myHand.forEach((wire, i) => {
-      if (String(wire.guessKey) === String(guessKey) && !wire.cut) {
-        updates[`hands/${playerId}/${i}/cut`] = true;
-        updates[`public/cutLog/log_${stamp}_${i}`] = {
-          ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
-          guessedBy: playerId, result: "cut", action: "solo",
-        };
-      }
-    });
-  } else {
-    const idx = myHand.findIndex((w) => String(w.guessKey) === String(guessKey) && !w.cut);
-    if (idx !== -1) {
-      const wire = myHand[idx];
-      updates[`hands/${playerId}/${idx}/cut`] = true;
-      updates[`public/cutLog/log_${stamp}`] = {
-        ownerId: playerId, position: idx, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
+  // Physical rule: if you hold all remaining copies of that value, cut them all at once
+  myHand.forEach((wire, i) => {
+    if (String(wire.guessKey) === String(guessKey) && !wire.cut) {
+      updates[`hands/${playerId}/${i}/cut`] = true;
+      updates[`public/cutLog/log_${stamp}_${i}`] = {
+        ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
         guessedBy: playerId, result: "cut", action: "solo",
       };
     }
-  }
+  });
   updates[`public/validationTokens/${guessKey}`] = true;
   updates.currentTurn = nextTurn();
 
