@@ -362,7 +362,7 @@ li:last-child { border-bottom: none; }
 .center { text-align: center; }
 .hidden { display: none !important; }
 
-/* Table + player screen additions (from suggestions) */
+/* Table + player screen additions */
 .badge--danger {
   background: var(--danger);
   color: var(--bg);
@@ -399,3 +399,24 @@ li:last-child { border-bottom: none; }
 .value-grid button { padding: 0.6rem 0; }
 
 #turn-indicator.badge { display: inline-block; }
+
+/* Yellow/red wire types — game content, not chrome, so a second accent is fine here */
+:root { --yellow: #b8860b; }
+[data-theme="dark"] { --yellow: #e8c34a; }
+
+.wire--yellow { border-color: var(--yellow); color: var(--yellow); }
+.wire--red { border-color: var(--danger); color: var(--danger); }
+
+.value-grid button.option-yellow { border-color: var(--yellow); color: var(--yellow); }
+.value-grid button.option-yellow:hover:not(:disabled) { background: var(--yellow); color: var(--bg); }
+
+.btn-reveal {
+  width: 100%;
+  background: var(--danger);
+  color: var(--bg);
+  border-color: var(--danger);
+  font-weight: 700;
+  padding: 0.8rem 1.2rem;
+  margin-top: 0.5rem;
+}
+.btn-reveal:hover:not(:disabled) { opacity: 0.88; }

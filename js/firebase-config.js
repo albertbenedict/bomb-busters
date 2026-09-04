@@ -1,5 +1,3 @@
-// Firebase init — using the CDN build directly (matches the rest of this
-// project, no npm install / bundler needed).
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
@@ -16,9 +14,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 
-// Helpful in Firefox – logs why wss might be blocked (ETP). SDK will auto-fallback to long-poll.
 if (typeof window !== "undefined") {
-  // Expose for manual testing: window._bombBustersDb = db
   window._bombBustersDb = db;
   console.log("[Bomb Busters] Firebase DB ready:", firebaseConfig.databaseURL);
 }

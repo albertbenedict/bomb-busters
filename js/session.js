@@ -19,15 +19,20 @@ function generateCode(length = 4) {
   return code;
 }
 
-export async function createSession({ wireCount = 12, detonatorMax = 4 }) {
-  // Retry on collision – 4-char code has ~1.2M combos, but check anyway.
+export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCount = 4, redCount = 2 } = {}) {
+  // Defensive clamp – matches index.html + rules (yellow even 2..6, red 1..3)
+  yellowCount = Math.max(2, Math.min(6, Math.round(Number(yellowCount) || 4)));
+  if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1);
+  redCount = Math.max(1, Math.min(3, Math.round(Number(redCount) || 2)));
+  wireCount = Math.max(4, Math.min(12, Math.round(Number(wireCount) || 12)));
+  detonatorMax = Math.max(1, Math.min(10, Math.round(Number(detonatorMax) || 4)));
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     const existsSnap = await withTimeout(get(ref(db, `sessions/${code}/status`)), 8000, "Checking room code");
     if (existsSnap.exists()) continue;
     await withTimeout(set(ref(db, `sessions/${code}`), {
       status: "lobby",
-      config: { wireCount, detonatorMax },
+      config: { wireCount, detonatorMax, yellowCount, redCount },
       turnOrder: [],
       currentTurn: null,
       pendingGuess: null,
@@ -48,8 +53,9 @@ export async function createSession({ wireCount = 12, detonatorMax = 4 }) {
 
 export async function joinSession(code, playerName, storedId = null) {
   const nameTrim = playerName.trim();
-  // 1) Device-based reconnect – stored playerId for this room (localStorage)
-  //    This is the correct key: "this device already has a seat here"
+
+  // 1) Device-based reconnect – stored playerId for this room (localStorage).
+  //    This is the correct key: "this device already has a seat here."
   if (storedId) {
     try {
       const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
@@ -73,8 +79,8 @@ export async function joinSession(code, playerName, storedId = null) {
     }
   }
 
-  // 2) Fallback for devices that cleared storage: only reuse an *offline* seat with same name
-  //    Never steal an active (connected:true) seat – allows two "Sam"s with different devices
+  // 2) Fallback for devices that cleared storage: only reuse an *offline* seat with the same name.
+  //    Never steal an active (connected:true) seat – allows two "Sam"s on different devices.
   try {
     const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
     const players = playersSnap.val() || {};
@@ -94,7 +100,7 @@ export async function joinSession(code, playerName, storedId = null) {
     console.warn("offline name check failed", e);
   }
 
-  // 3) No reusable seat – create a fresh playerId (allows duplicate display names)
+  // 3) No reusable seat – create a fresh playerId (allows duplicate display names).
   const playerId = "p_" + Math.random().toString(36).slice(2, 9);
   await withTimeout(set(ref(db, `sessions/${code}/public/players/${playerId}`), {
     name: nameTrim,
@@ -109,7 +115,6 @@ export async function joinSession(code, playerName, storedId = null) {
 export function watchSession(code, callback) {
   if (!code || typeof code !== "string" || code.trim().length === 0) {
     console.warn("watchSession called with empty code:", code);
-    // Avoid Firebase SecurityError from ref(db, 'sessions/') with empty path
     setTimeout(() => callback(null), 0);
     return () => {};
   }

@@ -71,7 +71,6 @@ if (!code || code === "undefined" || code === "null" || code.trim() === "") {
   roomCodeEl.textContent = code;
 }
 
-// .info/connected listener for this page too – shows if wss is blocked (Firefox ETP)
 try {
   onValue(ref(db, ".info/connected"), (snap) => setTableConn(snap.val() === true), (err) => {
     console.error("table conn listener failed", err);
@@ -153,6 +152,11 @@ function render(session) {
   const cutCount = cutLog.filter((c) => c.result === "cut").length;
   document.getElementById("cut-count").textContent = cutCount;
 
+  const yellowCut = cutLog.filter((c) => c.type === "yellow" && c.result === "cut").length;
+  const redCut = cutLog.filter((c) => c.type === "red" && c.result === "cut").length;
+  document.getElementById("yellow-count").textContent = `${yellowCut} / ${session.config.yellowCount ?? 0}`;
+  document.getElementById("red-count").textContent = `${redCut} / ${session.config.redCount ?? 0}`;
+
   const lobbyBadge = document.getElementById("lobby-badge");
   const finished = session.status === "won" || session.status === "lost";
   lobbyBadge.classList.toggle("hidden", finished);
@@ -178,7 +182,6 @@ function render(session) {
   startBtn.classList.toggle("hidden", !canStart);
   document.getElementById("lobby-hint").classList.toggle("hidden", session.status !== "lobby");
 
-  // Host controls visible once session exists (lobby or in_progress)
   const hasSession = !!session && !!session.config;
   resetBtn.classList.toggle("hidden", !hasSession);
   endBtn.classList.toggle("hidden", !hasSession);
@@ -191,7 +194,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   if (!session || !session.public.players) return;
   const playerIds = Object.keys(session.public.players);
   if (playerIds.length < 2) return;
-  const deck = buildDeck(session.config.wireCount);
+  const deck = buildDeck(session.config);
   const hands = dealHands(deck, playerIds);
 
   const updates = {
@@ -206,7 +209,6 @@ document.getElementById("start-btn").addEventListener("click", async () => {
     updates[`public/players/${id}/wireCount`] = hands[id].length;
     updates[`public/players/${id}/connected`] = true;
   });
-  // Clear previous game artefacts
   updates["public/cutLog"] = {};
   updates["public/infoTokens"] = {};
   updates["public/validationTokens"] = {};
@@ -223,15 +225,12 @@ async function kickPlayer(playerId, name) {
   const updates = {};
   updates[`public/players/${playerId}`] = null;
   updates[`hands/${playerId}`] = null;
-  // Remove from turnOrder
   const order = (session.turnOrder || []).filter((id) => id !== playerId);
   updates["turnOrder"] = order;
-  // If kicked player was current turn, advance (with skip)
   if (session.currentTurn === playerId) {
     if (order.length === 0) {
       updates["currentTurn"] = null;
     } else {
-      // Find next live player (skip fully cut)
       let next = order[0];
       for (const id of order) {
         const hand = session.hands && session.hands[id];
@@ -240,7 +239,6 @@ async function kickPlayer(playerId, name) {
       updates["currentTurn"] = next;
     }
   }
-  // If lobby and only kick, keep status
   if (order.length < 2 && session.status === "in_progress") {
     updates["status"] = "lobby";
   }

@@ -9,9 +9,11 @@
           ".validate": "newData.isString() && newData.val().matches(/^(lobby|in_progress|won|lost)$/)"
         },
         "config": {
-          ".validate": "newData.hasChildren(['wireCount', 'detonatorMax'])",
+          ".validate": "newData.hasChildren(['wireCount', 'detonatorMax', 'yellowCount', 'redCount'])",
           "wireCount": { ".validate": "newData.isNumber() && newData.val() >= 4 && newData.val() <= 12" },
-          "detonatorMax": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10" }
+          "detonatorMax": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10" },
+          "yellowCount": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 6 && newData.val() % 2 == 0" },
+          "redCount": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 3" }
         },
         "turnOrder": { ".validate": "newData.hasChildren() == false || newData.val() != null" },
         "currentTurn": { ".validate": true },
