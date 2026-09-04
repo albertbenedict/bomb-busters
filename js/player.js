@@ -340,15 +340,17 @@ async function resolvePendingGuess(guess) {
     return;
   }
 
-  const correct = wire.guessKey === guess.guessKey;
+  // Normalize for yellow — both should be "yellow" string, blues are numbers (handle string/number coerce)
+  const correct = String(wire.guessKey) === String(guess.guessKey);
   const stamp = Date.now();
+  console.log("[resolve] guess", guess, "wire", wire, "correct", correct);
 
   const updates = { pendingGuess: null };
   updates[`public/cutLog/log_${stamp}`] = {
     ownerId: playerId,
     position: guess.position,
     type: wire.type,
-    value: wire.value,
+    value: wire.value ?? wire.guessKey,
     guessKey: wire.guessKey,
     guessedBy: guess.by,
     result: correct ? "cut" : "wrong",
@@ -360,7 +362,7 @@ async function resolvePendingGuess(guess) {
     updates[`hands/${playerId}/${guess.position}/cut`] = true;
   } else {
     updates[`public/infoTokens/info_${stamp}`] = {
-      ownerId: playerId, position: guess.position, type: wire.type, value: wire.value, guessKey: wire.guessKey,
+      ownerId: playerId, position: guess.position, type: wire.type, value: wire.value ?? wire.guessKey, guessKey: wire.guessKey,
     };
     newDetonatorPos += 1;
     updates[`public/detonator/position`] = newDetonatorPos;
@@ -385,7 +387,7 @@ async function reactToOutcome(outcome) {
 
   if (outcome.correct) {
     const myHand = session.hands[playerId];
-    const idx = myHand.findIndex((w) => w.guessKey === outcome.guessKey && !w.cut);
+    const idx = myHand.findIndex((w) => String(w.guessKey) === String(outcome.guessKey) && !w.cut);
     if (idx > -1) updates[`hands/${playerId}/${idx}/cut`] = true;
   }
 
