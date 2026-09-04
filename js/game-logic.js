@@ -49,7 +49,7 @@ export function dealHands(deck, playerIds) {
 }
 
 export function cutCountForKey(cutLog, key) {
-  return Object.values(cutLog || {}).filter((c) => c.guessKey === key).length;
+  return Object.values(cutLog || {}).filter((c) => String(c.guessKey) === String(key) && c.result === "cut").length;
 }
 
 // How many total copies of each guessable key exist in this game — every
