@@ -29,7 +29,7 @@
     <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
   </section>
 
-  <!-- Central area: 4 players around bomb + tracker -->
+  <!-- Central area: 5 players around bomb + tracker (per your 5P layout) -->
   <section class="board-center">
     <!-- Left column: 2 players -->
     <div class="board-players board-players--left">
@@ -37,7 +37,7 @@
       <div class="board-player-slot" data-slot="2"></div>
     </div>
 
-    <!-- Middle: tracker (top) + bomb (center) -->
+    <!-- Middle: tracker (top) + 5th player (when 5P) + bomb (center) -->
     <div class="board-middle">
       <div class="board-tracker card">
         <div class="card-head" style="margin-bottom:0.4rem;">
@@ -46,6 +46,9 @@
         </div>
         <div id="wire-tracker" class="wire-tracker wire-tracker--dots"></div>
       </div>
+
+      <!-- 5th player — centered above bomb when 5P, per your layout -->
+      <div class="board-player-slot board-player-slot--center hidden" data-slot="4"></div>
 
       <div class="board-bomb">
         <div class="bomb-graphic" aria-hidden="true">

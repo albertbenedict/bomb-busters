@@ -124,8 +124,17 @@ function render(session) {
   const slots = document.querySelectorAll(".board-player-slot");
   const hiddenList = document.getElementById("players");
   if (hiddenList) hiddenList.innerHTML = "";
-  const entries = Object.entries(players).slice(0, 4);
-  slots.forEach((s) => (s.innerHTML = ""));
+  const allEntries = Object.entries(players);
+  const entries = allEntries.slice(0, 5);
+  // Map slots by data-slot for 5P layout (0,1,2,3 left/right, 4 center)
+  const slotsByIdx = {};
+  slots.forEach((el) => {
+    const idx = Number(el.dataset.slot);
+    slotsByIdx[idx] = el;
+    el.innerHTML = "";
+    el.classList.add("hidden");
+  });
+  // Show only needed slots
   entries.forEach(([id, p], idx) => {
     const isActive = session.currentTurn === id && session.status === "in_progress";
     const card = document.createElement("div");
@@ -160,8 +169,11 @@ function render(session) {
     kickBtn.style.opacity = "0.72";
     kickBtn.onclick = () => kickPlayer(id, p.name);
     card.appendChild(kickBtn);
-    const slot = slots[idx];
-    if (slot) slot.appendChild(card);
+    const slot = slotsByIdx[idx];
+    if (slot) {
+      slot.classList.remove("hidden");
+      slot.appendChild(card);
+    }
     if (hiddenList) {
       const li = document.createElement("li");
       li.textContent = p.name;
@@ -169,13 +181,20 @@ function render(session) {
     }
   });
 
-  for (let i = entries.length; i < 4; i++) {
-    const slot = slots[i];
-    if (slot) slot.innerHTML = `<div class="card" style="opacity:0.45; text-align:center;"><p class="muted">Empty</p><p class="muted" style="font-size:0.75rem;">Waiting for player</p></div>`;
+  // Empty placeholders for missing players among the 4 corners (hide 5th if not needed)
+  const maxSlots = entries.length === 5 ? 5 : 4;
+  for (let i = entries.length; i < maxSlots; i++) {
+    const slot = slotsByIdx[i];
+    if (slot) {
+      slot.classList.remove("hidden");
+      slot.innerHTML = `<div class="card" style="opacity:0.45; text-align:center;"><p class="muted">Empty</p><p class="muted" style="font-size:0.75rem;">Waiting for player</p></div>`;
+    }
   }
+  // Hide 5th center slot when <5 players
+  if (slotsByIdx[4] && entries.length < 5) slotsByIdx[4].classList.add("hidden");
 
-  if (Object.keys(players).length > 4) {
-    console.warn("More than 4 players — limited to 4 per your note");
+  if (allEntries.length > 5) {
+    console.warn("More than 5 players — truncating to 5");
   }
 
   const detonator = session.public.detonator;
@@ -281,7 +300,7 @@ function render(session) {
         chip.title = "Equipment slot — will be assigned at deal";
       } else {
         const [, e] = entry;
-        const cnt = Object.values(cutLog).filter((c) => c.guessKey === e.unlockValue).length;
+        const cnt = cutCountForKey(cutLog, e.unlockValue);
         const isUsed = !!e.used;
         const isUnlocked = !isUsed && cnt >= 2;
         chip.className = "eq-chip" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
@@ -330,8 +349,9 @@ function render(session) {
         const owner = players[tok.ownerId];
         const chip = document.createElement("span");
         chip.className = "hint-chip hint-chip--wrong";
-        chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
-        chip.title = `Wrong guess revealed — actual ${tok.value ?? tok.guessKey}`;
+        const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
+        chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${wasLabel}`;
+        chip.title = `Wrong guess revealed — actual ${wasLabel}`;
         hintsEl.appendChild(chip);
       });
     }

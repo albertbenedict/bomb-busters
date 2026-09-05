@@ -244,7 +244,8 @@ function renderTargets(canAct) {
       wrongs.forEach((tok) => {
         const chip = document.createElement("span");
         chip.className = "hint-chip hint-chip--wrong";
-        chip.textContent = `${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+        const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
+        chip.textContent = `${tok.position + 1} was ${wasLabel}`;
         chip.title = `Wrong guess revealed`;
         wrongRow.appendChild(chip);
       });
@@ -359,12 +360,12 @@ function renderHints() {
   const players = session.public.players || {};
   if (!hintsEnabled) {
     list.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints disabled for this game.</span>`;
-    // Still show wrong reveals even when hints disabled? Keep was hints visible as deduction help
     Object.values(infoTokens).forEach((tok) => {
       const owner = players[tok.ownerId];
       const chip = document.createElement("span");
       chip.className = "hint-chip hint-chip--wrong";
-      chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+      const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
+      chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${wasLabel}`;
       chip.title = `Wrong guess revealed`;
       list.appendChild(chip);
     });
@@ -393,7 +394,8 @@ function renderHints() {
     const owner = players[tok.ownerId];
     const chip = document.createElement("span");
     chip.className = "hint-chip hint-chip--wrong";
-    chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${tok.value ?? tok.guessKey}`;
+    const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
+    chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${wasLabel}`;
     chip.title = `Wrong guess revealed`;
     list.appendChild(chip);
   });
@@ -518,10 +520,8 @@ async function resolvePendingGuess(guess) {
     return;
   }
 
-  // Normalize for yellow
   const correct = String(wire.guessKey) === String(guess.guessKey);
   const stamp = Date.now();
-  console.log("[resolve] guess", guess, "wire", wire, "correct", correct);
 
   const updates = { pendingGuess: null };
   updates[`public/cutLog/log_${stamp}`] = {
