@@ -57,9 +57,11 @@
           </div>
           <div class="bomb-fuse">◉</div>
           <div class="bomb-dial" id="bomb-dial">
-            <div class="bomb-dial__label" id="detonator">0 / 0</div>
-            <div id="detonator-meter" class="detonator-meter detonator-meter--dial" aria-hidden="true"></div>
-            <div class="badge badge--muted" id="detonator-badge" style="margin-top:0.35rem;">Safe</div>
+            <div class="bomb-dial__needle" id="detonator-needle" aria-hidden="true"></div>
+            <div class="bomb-dial__center"></div>
+            <div id="detonator" class="hidden">0 / 0</div>
+            <div id="detonator-meter" class="hidden"></div>
+            <div id="detonator-badge" class="hidden">Safe</div>
           </div>
         </div>
         <div id="detonator-label" class="muted" style="font-size:0.8rem; margin-top:0.4rem; text-align:center;"></div>
@@ -80,17 +82,8 @@
     <p id="lobby-hint" class="hidden"></p>
   </section>
 
-  <!-- Bottom: hints + status -->
-  <section class="board-bottom">
-    <div class="card">
-      <div class="card-head">
-        <h3>Hints</h3>
-        <span class="badge badge--muted" id="hints-badge">Factual</span>
-      </div>
-      <div id="hints-pool" class="hints-pool"></div>
-      <p class="muted" style="font-size:0.8rem; margin:0.4rem 0 0;">One blue hint per player, same order as turns. Wrong guesses also reveal as <em>was</em> hints.</p>
-    </div>
-  </section>
+  <!-- Hints now inline per-wire (house below wire) — global board removed per your request, kept hidden for JS compat -->
+  <div id="hints-pool" class="hidden" aria-hidden="true"></div>
 
   <!-- Stats hidden but kept for JS (cut counts) -->
   <div class="hidden" aria-hidden="true">

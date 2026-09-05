@@ -19,6 +19,19 @@ function setTableConn(connected) {
   tableConnText.textContent = connected ? "Connected" : "Offline — check Wi-Fi / disable Firefox Tracking Protection";
 }
 
+function polar(cx, cy, r, deg) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+function segmentPath(cx, cy, r, startDeg, endDeg) {
+  const start = polar(cx, cy, r, startDeg);
+  const end = polar(cx, cy, r, endDeg);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+}
+// Cat head path — white outline on black in source, filled black on dial segments
+const CAT_HEAD_D = "M -9 -7 C -9 -7 -7 -13 0 -8 C 7 -13 9 -7 9 -7 L 7 6 C 7 9 4 12 0 12 C -4 12 -7 9 -7 6 Z";
+
 function showTableError(message, hint) {
   tableErrorEl.innerHTML = "";
   const strong = document.createElement("div");
@@ -134,19 +147,26 @@ function render(session) {
     el.innerHTML = "";
     el.classList.add("hidden");
   });
-  // Show only needed slots
+  // Show only needed slots — per-wire board with hint houses below each wire
+  const hints = session.public.hints || {};
+  const infoTokens = session.public.infoTokens || {};
+  const hands = session.hands || {};
   entries.forEach(([id, p], idx) => {
     const isActive = session.currentTurn === id && session.status === "in_progress";
     const card = document.createElement("div");
-    card.className = "card" + (isActive ? " card--active" : "");
+    card.className = "card player-board" + (isActive ? " card--active" : "");
     card.style.marginBottom = "0";
     const head = document.createElement("div");
-    head.className = "card-head";
-    head.style.marginBottom = "0.4rem";
-    const title = document.createElement("strong");
-    title.textContent = p.name;
-    title.style.fontWeight = isActive ? "800" : "600";
-    head.appendChild(title);
+    head.style.display = "flex";
+    head.style.justifyContent = "space-between";
+    head.style.alignItems = "flex-start";
+    head.style.marginBottom = "0.35rem";
+    const nameEl = document.createElement("div");
+    nameEl.style.fontFamily = "'Space Grotesk', sans-serif";
+    nameEl.style.fontWeight = isActive ? "800" : "700";
+    nameEl.style.fontSize = "0.95rem";
+    nameEl.textContent = p.name;
+    head.appendChild(nameEl);
     if (isActive) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -154,21 +174,78 @@ function render(session) {
       head.appendChild(badge);
     }
     card.appendChild(head);
+
+    // Wires row — quantity = dealt count, face-down black until revealed
+    const tray = document.createElement("div");
+    tray.className = "player-tray";
+    const hand = hands[id] || [];
+    for (let pos = 0; pos < p.wireCount; pos++) {
+      const w = hand[pos];
+      const isCut = !!(w && w.cut);
+      const wrap = document.createElement("div");
+      wrap.className = "wire-wrap";
+      const tile = document.createElement("div");
+      // All face-down look identical until revealed/cut
+      if (isCut) {
+        tile.className = `wire-tile wire-tile--revealed wire-tile--${w.type}`;
+        tile.textContent = w.type === "yellow" ? "Y" : w.type === "red" ? "R" : String(w.value ?? "");
+      } else {
+        tile.className = "wire-tile wire-tile--down";
+        tile.innerHTML = `<span class="wire-line"></span>`;
+      }
+      wrap.appendChild(tile);
+      // Hint house below this wire — only after hint phase, same number as wire above, disappears on cut
+      if (!isCut) {
+        const myHint = hints[id];
+        const wrong = Object.values(infoTokens).find((t) => t.ownerId === id && t.position === pos);
+        let houseVal = null;
+        let houseKind = null;
+        if (myHint && myHint.position === pos) {
+          houseVal = myHint.value;
+          houseKind = "is";
+        } else if (wrong) {
+          houseVal = wrong.type === "red" ? "R" : wrong.type === "yellow" ? "Y" : (wrong.value ?? wrong.guessKey);
+          houseKind = "was";
+        }
+        if (houseVal !== null) {
+          const house = document.createElement("div");
+          house.className = `hint-house ${houseKind === "was" ? "hint-house--was" : ""}`;
+          house.textContent = String(houseVal);
+          house.title = houseKind === "is" ? `Hint: ${pos + 1} is ${houseVal}` : `Was ${houseVal}`;
+          wrap.appendChild(house);
+        }
+      }
+      tray.appendChild(wrap);
+    }
+    if (p.wireCount === 0) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.style.fontSize = "0.82rem";
+      empty.textContent = "No wires yet — waiting for deal";
+      tray.appendChild(empty);
+    }
+    card.appendChild(tray);
+
+    const foot = document.createElement("div");
+    foot.style.display = "flex";
+    foot.style.justifyContent = "space-between";
+    foot.style.alignItems = "center";
+    foot.style.marginTop = "0.4rem";
     const meta = document.createElement("div");
     meta.className = "muted";
-    meta.style.fontSize = "0.82rem";
-    meta.textContent = `${p.wireCount} wires`;
-    if (p.connected === false) meta.textContent += " · Offline";
-    card.appendChild(meta);
+    meta.style.fontSize = "0.78rem";
+    meta.textContent = p.connected === false ? "Offline" : `${p.wireCount} wires`;
+    foot.appendChild(meta);
     const kickBtn = document.createElement("button");
     kickBtn.textContent = "Kick";
     kickBtn.className = "danger";
-    kickBtn.style.padding = "0.2rem 0.5rem";
-    kickBtn.style.fontSize = "0.75rem";
-    kickBtn.style.marginTop = "0.4rem";
+    kickBtn.style.padding = "0.18rem 0.45rem";
+    kickBtn.style.fontSize = "0.7rem";
     kickBtn.style.opacity = "0.72";
     kickBtn.onclick = () => kickPlayer(id, p.name);
-    card.appendChild(kickBtn);
+    foot.appendChild(kickBtn);
+    card.appendChild(foot);
+
     const slot = slotsByIdx[idx];
     if (slot) {
       slot.classList.remove("hidden");
@@ -210,27 +287,113 @@ function render(session) {
   detonatorBadge.classList.toggle("badge--muted", !danger);
 
 
+  // Old meter now hidden — using 6-segment dial
   const meterEl = document.getElementById("detonator-meter");
-  if (meterEl) {
-    meterEl.innerHTML = "";
-    const max = detonator.max || 1;
-    const justIncreased = prevDetonatorPosition !== null && detonator.position > prevDetonatorPosition;
-    for (let i = 0; i < max; i++) {
-      const dot = document.createElement("span");
-      dot.className = "detonator-dot" + (i < detonator.position ? " filled" : "");
-      if (i < detonator.position && danger) dot.classList.add("danger");
-      if (justIncreased && i === detonator.position - 1) dot.classList.add("pulse");
-      meterEl.appendChild(dot);
+  if (meterEl) meterEl.innerHTML = "";
+  // Detonator dial — 6 segments matching the reference image (cats 2-3, skull, arrow)
+  const dialSvg = document.getElementById("detonator-dial-svg");
+  const needle = document.getElementById("detonator-needle");
+  if (dialSvg) {
+    dialSvg.innerHTML = "";
+    const SEGMENTS = 6;
+    // Colors matching the reference: light green, yellow, orange, red, purple, green
+    const colors = ["#f1c40f", "#f39c12", "#c0392b", "#7d3c98", "#2ecc71", "#a8e063"];
+    const catCounts = [2, 2, 0, 0, 3, 2]; // per segment: 0:top(2),1:top-right(2),2:right skull,3:bottom-right arrow,4:bottom-left green 3,5:left 2
+    const segAngle = 360 / SEGMENTS;
+    for (let i = 0; i < SEGMENTS; i++) {
+      const color = colors[i];
+      const startDeg = (i * segAngle) - 90;
+      const endDeg = ((i + 1) * segAngle) - 90;
+      const path = segmentPath(50, 50, 48, startDeg, endDeg);
+      const seg = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      seg.setAttribute("d", path);
+      seg.setAttribute("fill", color);
+      seg.setAttribute("stroke", "#0f1f1a");
+      seg.setAttribute("stroke-width", "0.8");
+      const isPast = i < detonator.position;
+      seg.setAttribute("opacity", isPast ? "0.55" : "1");
+      dialSvg.appendChild(seg);
+      const count = catCounts[i];
+      if (count > 0) {
+        const midDeg = (startDeg + endDeg) / 2;
+        for (let c = 0; c < count; c++) {
+          const offsetAng = count === 1 ? 0 : ((c - (count - 1) / 2) * 7);
+          const offsetR = c % 2 === 0 ? 0 : -5;
+          const ang = midDeg + offsetAng;
+          const r = 28 + offsetR;
+          const pos = polar(50, 50, r, ang);
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          pathEl.setAttribute("d", CAT_HEAD_D);
+          pathEl.setAttribute("fill", "#1a1a1a");
+          pathEl.setAttribute("stroke", "#f5d76e");
+          pathEl.setAttribute("stroke-width", "0.5");
+          pathEl.setAttribute("opacity", "0.7");
+          g.setAttribute("transform", `translate(${pos.x} ${pos.y}) scale(0.34)`);
+          g.appendChild(pathEl);
+          dialSvg.appendChild(g);
+        }
+      } else if (i === 2) {
+        // Red segment — skull
+        const midDeg = (startDeg + endDeg) / 2;
+        const pos = polar(50, 50, 28, midDeg);
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", pos.x);
+        txt.setAttribute("y", pos.y);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "central");
+        txt.setAttribute("font-size", "13");
+        txt.setAttribute("fill", "white");
+        txt.textContent = "☠";
+        dialSvg.appendChild(txt);
+      } else if (i === 3) {
+        // Purple segment — arrow + triangle (bottom right)
+        const midDeg = (startDeg + endDeg) / 2;
+        const pos = polar(50, 50, 28, midDeg);
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
+        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        arrow.setAttribute("d", "M -8 -4 L 6 -4 L 6 -7 L 12 0 L 6 7 L 6 4 L -8 4 Z");
+        arrow.setAttribute("fill", "#aed6f1");
+        arrow.setAttribute("stroke", "#1a1a1a");
+        arrow.setAttribute("stroke-width", "0.6");
+        arrow.setAttribute("transform", "scale(0.9)");
+        g.appendChild(arrow);
+        const tri = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        tri.setAttribute("d", "M -4 6 L 4 6 L 0 -6 Z");
+        tri.setAttribute("fill", "#f9e79f");
+        tri.setAttribute("stroke", "#1a1a1a");
+        tri.setAttribute("stroke-width", "0.6");
+        tri.setAttribute("transform", "translate(0 10) scale(0.9)");
+        g.appendChild(tri);
+        // Small exclamation inside triangle
+        const excl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        excl.setAttribute("x", "0");
+        excl.setAttribute("y", "8");
+        excl.setAttribute("text-anchor", "middle");
+        excl.setAttribute("font-size", "6");
+        excl.setAttribute("fill", "#1a1a1a");
+        excl.textContent = "!";
+        g.appendChild(excl);
+        dialSvg.appendChild(g);
+      }
     }
-    const bar = document.createElement("div");
-    bar.className = "detonator-bar";
-    bar.style.width = "100%";
-    const fill = document.createElement("div");
-    fill.className = "detonator-bar__fill" + (critical ? " critical" : danger ? " warn" : "");
-    fill.style.width = `${Math.min(100, (detonator.position / max) * 100)}%`;
-    bar.appendChild(fill);
-    meterEl.appendChild(bar);
+    const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    center.setAttribute("cx", "50");
+    center.setAttribute("cy", "50");
+    center.setAttribute("r", "8.5");
+    center.setAttribute("fill", "#0f1f1a");
+    center.setAttribute("stroke", "#e8ecef");
+    center.setAttribute("stroke-width", "1.4");
+    dialSvg.appendChild(center);
   }
+  if (needle) {
+    const clamped = Math.min(detonator.position, 5);
+    const angle = (clamped / 6) * 360;
+    needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+    needle.style.opacity = critical ? "0.9" : "1";
+  }
+
   prevDetonatorPosition = detonator.position;
 
   const labelEl = document.getElementById("detonator-label");
