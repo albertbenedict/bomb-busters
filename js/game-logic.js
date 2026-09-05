@@ -9,44 +9,85 @@ function shuffle(arr) {
   return a;
 }
 
-// Builds the full wire pool: blue numbered wires (4 of each 1..wireCount),
-// yellow wires (order-only, no number — guessed as "yellow"), and red wires
-// (never duo-guessable — only cleared via the "reveal red wires" action).
+// Builds the full wire pool: blues fixed 1-12×4, yellows 1.1-11.1 and reds 1.5-11.5
+// Yellow/red values are decimals to interleave: 1, 1.1, 1.5, 2, 2.1...
+// Guess remains group: yellow "yellow", red never guessable.
 export function buildDeck({ wireCount = 12, yellowCount = 4, redCount = 2 } = {}) {
   const deck = [];
-  for (let value = 1; value <= wireCount; value++) {
+  // Blues fixed 1-12×4 (ignore wireCount for missions — always 12 per your note)
+  const wc = 12;
+  for (let value = 1; value <= wc; value++) {
     for (let copy = 0; copy < 4; copy++) {
       deck.push({ type: "blue", value, guessKey: value });
     }
   }
-  for (let i = 0; i < yellowCount; i++) {
-    deck.push({ type: "yellow", value: null, guessKey: "yellow" });
-  }
-  for (let i = 0; i < redCount; i++) {
-    deck.push({ type: "red", value: null, guessKey: null });
-  }
+  // Yellows: distinct 1.1-11.1
+  const yellowPool = [];
+  for (let v = 1; v <= 11; v++) yellowPool.push(v + 0.1);
+  const yellows = shuffle(yellowPool).slice(0, Math.max(0, Math.min(11, yellowCount)));
+  yellows.forEach((val) => deck.push({ type: "yellow", value: val, guessKey: "yellow" }));
+  // Reds: distinct 1.5-11.5
+  const redPool = [];
+  for (let v = 1; v <= 11; v++) redPool.push(v + 0.5);
+  const reds = shuffle(redPool).slice(0, Math.max(0, Math.min(11, redCount)));
+  reds.forEach((val) => deck.push({ type: "red", value: val, guessKey: null }));
   return shuffle(deck);
 }
 
-// Deals as evenly as possible, then sorts each hand: blues ascending first
-// (mirrors physically sorting your tile stand left to right), yellows next,
-// reds last. Blue order matters for guessing; yellow/red are fungible within
-// their own type, so their exact position doesn't leak extra information.
-export function dealHands(deck, playerIds) {
+// Deals as evenly as possible, then sorts each hand by decimal value
+// 1, 1.1, 1.5, 2, 2.1... — interleaves blue/yellow/red as in the box
+// Captain gets all remainder when not divisible (per your note)
+export function dealHands(deck, playerIds, captainId = null) {
   const hands = {};
-  playerIds.forEach((id) => (hands[id] = []));
+  const orderedIds = captainId && playerIds.includes(captainId)
+    ? [captainId, ...playerIds.filter((id) => id !== captainId)]
+    : [...playerIds];
+  orderedIds.forEach((id) => (hands[id] = []));
+  // Round-robin first
   deck.forEach((wire, i) => {
-    hands[playerIds[i % playerIds.length]].push({ ...wire, cut: false });
+    hands[orderedIds[i % orderedIds.length]].push({ ...wire, cut: false });
   });
-  const typeOrder = { blue: 0, yellow: 1, red: 2 };
-  playerIds.forEach((id) => {
-    hands[id].sort((a, b) => {
-      if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
-      return (a.value || 0) - (b.value || 0);
+  // Move all remainder extra (beyond floor) to captain only
+  const remainder = deck.length % orderedIds.length;
+  if (captainId && orderedIds.includes(captainId) && remainder > 0) {
+    // Collect indices that got the extra due to round-robin distribution (first `remainder` in orderedIds)
+    const extraRecipients = orderedIds.slice(1, remainder);
+    extraRecipients.forEach((pid) => {
+      const wire = hands[pid].pop();
+      if (wire) hands[captainId].push(wire);
     });
+  }
+  // Restore mapping to original playerIds order for return, but keep captain extra
+  const result = {};
+  playerIds.forEach((id) => (result[id] = hands[id] || []));
+  // Ensure captain's extra is in result
+  if (captainId && !playerIds.includes(captainId)) result[captainId] = hands[captainId];
+  Object.keys(result).forEach((id) => {
+    result[id].sort((a, b) => (a.value || 0) - (b.value || 0));
   });
-  return hands;
+  return result;
 }
+
+export const MISSIONS = [
+  {
+    id: 1,
+    name: "First Yellow",
+    desc: "Blues 1–12, Yellows 2 (2.1, 7.1), Reds 0 — learn YELLOW as group & tracker.",
+    wireCount: 12,
+    yellowCount: 2,
+    redCount: 0,
+    detonatorMax: 4,
+  },
+  {
+    id: 2,
+    name: "Live Red",
+    desc: "Blues 1–12, Yellows 3 (1.1, 5.1, 9.1), Reds 1 (6.5) — red is instant loss if guessed, plus Y interleaving.",
+    wireCount: 12,
+    yellowCount: 3,
+    redCount: 1,
+    detonatorMax: 4,
+  },
+];
 
 export function cutCountForKey(cutLog, key) {
   return Object.values(cutLog || {}).filter((c) => String(c.guessKey) === String(key) && c.result === "cut").length;

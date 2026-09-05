@@ -8,13 +8,9 @@ const firebaseConfig = {
   storageBucket: "bomb-busters-744e5.firebasestorage.app",
   messagingSenderId: "103619903698",
   appId: "1:103619903698:web:b56df17a0b1ba4ca892d0b",
-  databaseURL: "https://bomb-busters-744e5-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  // databaseURL: "https://bomb-busters-744e5-default-rtdb.REGION.firebasedatabase.app",
+  // ^ add this once the Realtime Database is created
 };
 
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
-
-if (typeof window !== "undefined") {
-  window._bombBustersDb = db;
-  console.log("[Bomb Busters] Firebase DB ready:", firebaseConfig.databaseURL);
-}

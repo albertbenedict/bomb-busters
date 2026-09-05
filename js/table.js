@@ -539,10 +539,15 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   const snap = await get(ref(db, `sessions/${code}`));
   const session = snap.val();
   if (!session || !session.public.players) return;
-  const playerIds = Object.keys(session.public.players);
+  let playerIds = Object.keys(session.public.players);
   if (playerIds.length < 2) return;
+  // Captain gets all remainder — reorder so captain is first
+  const captainId = session.public.captainId || playerIds[0];
+  if (captainId && playerIds.includes(captainId)) {
+    playerIds = [captainId, ...playerIds.filter((id) => id !== captainId)];
+  }
   const deck = buildDeck(session.config);
-  const hands = dealHands(deck, playerIds);
+  const hands = dealHands(deck, playerIds, captainId);
   const equipment = generateEquipment(playerIds.length, session.config.wireCount);
   const hintsEnabled = session.config?.hintsEnabled ?? true;
 
