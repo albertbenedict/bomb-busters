@@ -61,6 +61,7 @@
           },
           "hintOrder": { ".validate": true },
           "hintIndex": { ".validate": true },
+          "pendingSelections": { ".validate": true },
           "$other": { ".validate": false }
         },
         "hands": { ".validate": true }

@@ -265,8 +265,12 @@ function renderTargets(canAct) {
       btn.setAttribute("aria-label", `${p.name} wire ${pos + 1}${alreadyCut ? " (cut)" : ""}`);
       if (!alreadyCut) {
         btn.addEventListener("click", () => {
+          const prev = activeGuess;
           activeGuess = { targetId: id, targetName: p.name, position: pos };
           render();
+          if (!prev || prev.targetId !== id || prev.position !== pos) {
+            update(ref(db, `sessions/${code}/public/pendingSelections/${playerId}`), { targetId: id, position: pos, targetName: p.name, at: Date.now() }).catch(() => {});
+          }
         });
       }
       rack.appendChild(btn);
@@ -327,6 +331,7 @@ function renderGuessComposer() {
 
   document.getElementById("guess-cancel").onclick = () => {
     activeGuess = null;
+    update(ref(db, `sessions/${code}/public/pendingSelections/${playerId}`), null).catch(() => {});
     render();
   };
 }
@@ -508,6 +513,7 @@ function submitGuess(guessKey) {
   activeGuess = null;
   update(ref(db, `sessions/${code}`), {
     pendingGuess: { by: playerId, target: targetId, position, guessKey, action: "duo" },
+    [`public/pendingSelections/${playerId}`]: null,
   });
 }
 
@@ -523,7 +529,7 @@ async function resolvePendingGuess(guess) {
   const correct = String(wire.guessKey) === String(guess.guessKey);
   const stamp = Date.now();
 
-  const updates = { pendingGuess: null };
+  const updates = { pendingGuess: null, [`public/pendingSelections/${guess.by}`]: null };
   updates[`public/cutLog/log_${stamp}`] = {
     ownerId: playerId,
     position: guess.position,
@@ -631,6 +637,11 @@ function nextTurn() {
 }
 
 async function checkWin() {
-  const allCut = Object.values(session.hands).every(isHandFullyCut);
-  if (allCut) await update(ref(db, `sessions/${code}`), { status: "won" });
+  const allNonRedCut = Object.values(session.hands).every((hand) => hand.filter((w) => w.type !== "red").every((w) => w.cut));
+  const hasNonRed = Object.values(session.hands).some((hand) => hand.some((w) => w.type !== "red"));
+  const allRedLast = Object.values(session.hands).every((hand) => {
+    const remaining = hand.filter((w) => !w.cut);
+    return remaining.length === 0 || remaining.every((w) => w.type === "red");
+  });
+  if (hasNonRed && allNonRedCut && allRedLast) await update(ref(db, `sessions/${code}`), { status: "won" });
 }

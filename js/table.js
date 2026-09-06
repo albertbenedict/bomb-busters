@@ -179,43 +179,57 @@ function render(session) {
     const tray = document.createElement("div");
     tray.className = "player-tray";
     const hand = hands[id] || [];
+    const pendingSelections = session.public.pendingSelections || {};
     for (let pos = 0; pos < p.wireCount; pos++) {
       const w = hand[pos];
       const isCut = !!(w && w.cut);
+      const pending = Object.entries(pendingSelections).find(([gid, sel]) => sel && sel.targetId === id && sel.position === pos && session.currentTurn === gid && session.status === "in_progress");
       const wrap = document.createElement("div");
       wrap.className = "wire-wrap";
       const tile = document.createElement("div");
-      // All face-down look identical until revealed/cut
       if (isCut) {
         tile.className = `wire-tile wire-tile--revealed wire-tile--${w.type}`;
         tile.textContent = w.type === "yellow" ? "Y" : w.type === "red" ? "R" : String(w.value ?? "");
       } else {
-        tile.className = "wire-tile wire-tile--down";
+        tile.className = "wire-tile wire-tile--down" + (pending ? " wire-tile--pending" : "");
         tile.innerHTML = `<span class="wire-line"></span>`;
+        if (pending) {
+          const guesser = players[pending[0]]?.name || pending[1].targetName || "Someone";
+          tile.title = `${guesser} is targeting this wire`;
+          const badge = document.createElement("div");
+          badge.className = "pending-badge";
+          badge.textContent = guesser;
+          tile.appendChild(badge);
+        }
       }
+      if (pending && !isCut) tile.classList.add("wire-tile--pending-active");
       wrap.appendChild(tile);
-      // Hint house below this wire — only after hint phase, same number as wire above, disappears on cut
+      tray.appendChild(wrap);
+    }
+    // Hint houses row below tray — aligned under each wire, outside gray background
+    const hintRow = document.createElement("div");
+    hintRow.className = "hint-row-below";
+    for (let pos = 0; pos < p.wireCount; pos++) {
+      const w = hand[pos];
+      const isCut = !!(w && w.cut);
+      const cell = document.createElement("div");
+      cell.className = "hint-cell";
       if (!isCut) {
         const myHint = hints[id];
         const wrong = Object.values(infoTokens).find((t) => t.ownerId === id && t.position === pos);
         let houseVal = null;
         let houseKind = null;
-        if (myHint && myHint.position === pos) {
-          houseVal = myHint.value;
-          houseKind = "is";
-        } else if (wrong) {
-          houseVal = wrong.type === "red" ? "R" : wrong.type === "yellow" ? "Y" : (wrong.value ?? wrong.guessKey);
-          houseKind = "was";
-        }
+        if (myHint && myHint.position === pos) { houseVal = myHint.value; houseKind = "is"; }
+        else if (wrong) { houseVal = wrong.type === "red" ? "R" : wrong.type === "yellow" ? "Y" : (wrong.value ?? wrong.guessKey); houseKind = "was"; }
         if (houseVal !== null) {
           const house = document.createElement("div");
           house.className = `hint-house ${houseKind === "was" ? "hint-house--was" : ""}`;
           house.textContent = String(houseVal);
           house.title = houseKind === "is" ? `Hint: ${pos + 1} is ${houseVal}` : `Was ${houseVal}`;
-          wrap.appendChild(house);
+          cell.appendChild(house);
         }
       }
-      tray.appendChild(wrap);
+      hintRow.appendChild(cell);
     }
     if (p.wireCount === 0) {
       const empty = document.createElement("div");
@@ -225,6 +239,7 @@ function render(session) {
       tray.appendChild(empty);
     }
     card.appendChild(tray);
+    card.appendChild(hintRow);
 
     const foot = document.createElement("div");
     foot.style.display = "flex";
@@ -391,9 +406,8 @@ function render(session) {
   }
   if (needle) {
     const max = detonator.max || getDetonatorMax(Object.keys(session.public.players || {}).length || 4);
-    const clamped = Math.min(detonator.position, Math.max(0, max - 1));
-    const startAngle = (210 + max * 60) % 360;
-    const angle = startAngle - clamped * 60 + 30;
+    const startAngle = ({ 5: 150, 4: 90, 3: 30, 2: 330, 1: 270, 0: 210 }[max] ?? (210 + max * 60) % 360);
+    const angle = critical ? 210 : startAngle - detonator.position * 60;
     needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
     needle.style.opacity = critical ? "0.9" : "1";
     needle.title = `${max} lives — starting at ${max}-cat segment center`;
@@ -617,6 +631,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   updates["public/cutLog"] = {};
   updates["public/infoTokens"] = {};
   updates["public/validationTokens"] = {};
+  updates["public/pendingSelections"] = {};
   updates["public/detonator/position"] = 0;
   updates["public/detonator/max"] = detonatorMax;
   updates["config/detonatorMax"] = detonatorMax;
@@ -686,6 +701,7 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
     "public/cutLog": {},
     "public/infoTokens": {},
     "public/validationTokens": {},
+    "public/pendingSelections": {},
     "public/equipment": {},
     "public/hints": {},
     "public/hintOrder": [],
