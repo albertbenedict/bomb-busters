@@ -124,6 +124,10 @@ if (code) {
       );
       return;
     }
+    if (!session.public?.captainId && session.public?.players && Object.keys(session.public.players).length > 0) {
+      const first = Object.keys(session.public.players)[0];
+      update(ref(db, `sessions/${code}/public`), { captainId: first }).catch(() => {});
+    }
     tableErrorEl.classList.add("hidden");
     tableErrorEl.innerHTML = "";
     render(session);
@@ -166,13 +170,34 @@ function render(session) {
     nameEl.style.fontWeight = isActive ? "800" : "700";
     nameEl.style.fontSize = "0.95rem";
     nameEl.textContent = p.name;
+    const isCaptain = session.public.captainId === id;
+    if (isCaptain) {
+      const capBadge = document.createElement("span");
+      capBadge.className = "badge";
+      capBadge.style.marginLeft = "0.35rem";
+      capBadge.textContent = "👑 Captain";
+      nameEl.appendChild(capBadge);
+    }
     head.appendChild(nameEl);
+    const headRight = document.createElement("div");
+    headRight.style.display = "flex";
+    headRight.style.gap = "0.3rem";
     if (isActive) {
       const badge = document.createElement("span");
       badge.className = "badge";
       badge.textContent = "Turn";
-      head.appendChild(badge);
+      headRight.appendChild(badge);
     }
+    if (!isCaptain) {
+      const capBtn = document.createElement("button");
+      capBtn.textContent = "Make Captain";
+      capBtn.className = "btn-ghost";
+      capBtn.style.padding = "0.18rem 0.45rem";
+      capBtn.style.fontSize = "0.65rem";
+      capBtn.onclick = () => update(ref(db, `sessions/${code}/public`), { captainId: id });
+      headRight.appendChild(capBtn);
+    }
+    head.appendChild(headRight);
     card.appendChild(head);
 
     // Wires row — quantity = dealt count, face-down black until revealed
@@ -682,6 +707,9 @@ async function kickPlayer(playerId, name) {
   }
   if (order.length < 2 && session.status === "in_progress") {
     updates["status"] = "lobby";
+  }
+  if (session.public?.captainId === playerId) {
+    updates["public/captainId"] = order[0] || null;
   }
   await update(ref(db, `sessions/${code}`), updates);
 }

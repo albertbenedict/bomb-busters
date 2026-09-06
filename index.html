@@ -21,19 +21,6 @@
     <p class="muted">This device becomes the table — set it somewhere everyone can see it.</p>
     <div class="settings-grid">
       <label class="field">
-        <span class="field-label">Wires <span class="field-hint">1 – 12</span></span>
-        <div class="number-field">
-          <input id="wire-count" type="number" value="12" min="4" max="12" inputmode="numeric" aria-label="Wire count">
-        </div>
-      </label>
-      <label class="field" style="opacity:0.7;">
-        <span class="field-label">Detonator <span class="field-hint">auto by players</span></span>
-        <div class="number-field" style="position:relative;">
-          <input id="detonator-max" type="text" value="Auto" disabled style="text-align:center; font-weight:700; background:var(--surface); color:var(--text-muted); cursor:not-allowed;">
-          <span style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:0.7rem; color:var(--text-muted);">● auto</span>
-        </div>
-      </label>
-      <label class="field">
         <span class="field-label">Yellow wires <span class="field-hint">2–6</span></span>
         <div class="number-field">
           <input id="yellow-count" type="number" value="4" min="2" max="6" step="2" inputmode="numeric" aria-label="Yellow wire count">
@@ -112,8 +99,8 @@
   });
 
   hostBtn.addEventListener("click", async () => {
-    const wireCount = Number(document.getElementById("wire-count").value) || 12;
-    const detonatorMax = 4;
+    const wireCount = Number(document.getElementById("wire-count")?.value) || 12;
+    const detonatorMax = Number(document.getElementById("detonator-max")?.value) || 4;
     let yellowCount = Number(document.getElementById("yellow-count").value) || 4;
     yellowCount = Math.max(2, Math.min(6, Math.round(yellowCount)));
     if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1); // keep even 2..6

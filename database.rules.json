@@ -62,6 +62,7 @@
           "hintOrder": { ".validate": true },
           "hintIndex": { ".validate": true },
           "pendingSelections": { ".validate": true },
+          "captainId": { ".validate": true },
           "$other": { ".validate": false }
         },
         "hands": { ".validate": true }

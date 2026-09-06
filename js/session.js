@@ -44,6 +44,7 @@ export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCo
         infoTokens: {},
         validationTokens: {},
         players: {},
+        captainId: null,
       },
       hands: {},
     }), 8000, "Creating room");
@@ -110,6 +111,12 @@ export async function joinSession(code, playerName, storedId = null) {
   }), 8000, "Joining room");
   try { onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`)).set(false); } catch {}
   try { localStorage.setItem(`bb-player-${code}`, playerId); localStorage.setItem(`bb-name-${code}`, nameTrim); } catch {}
+  try {
+    const capSnap = await withTimeout(get(ref(db, `sessions/${code}/public/captainId`)), 5000, "Checking captain");
+    if (!capSnap.exists() || !capSnap.val()) {
+      await withTimeout(set(ref(db, `sessions/${code}/public/captainId`), playerId), 5000, "Setting captain");
+    }
+  } catch {}
   return playerId;
 }
 
