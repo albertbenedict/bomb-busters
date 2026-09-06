@@ -9,7 +9,10 @@
 <body class="table-page">
 <nav>
   <span class="display nav-brand"><span class="nav-dot" aria-hidden="true"></span> Bomb Busters</span>
-  <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
+  <span style="display:flex; gap:0.5rem; align-items:center;">
+    <a href="index.html" class="btn-ghost" style="padding:0.45rem 0.85rem; font-size:0.88rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem;">← Home</a>
+    <button class="toggle" id="theme-toggle" aria-label="Toggle theme">Dark mode</button>
+  </span>
 </nav>
 
 <main class="table-board">
@@ -45,7 +48,7 @@
   </div>
 
   <div class="board-mid">
-    <section class="board-mission card center">
+    <section class="board-mission card center hidden" aria-hidden="true">
       <div class="card-head" style="margin-bottom:0.4rem;">
         <h3 style="font-size:0.95rem;">Mission Board</h3>
         <span class="badge badge--muted">M1</span>
@@ -53,7 +56,7 @@
       <p class="muted" style="font-size:0.82rem;">Place mission cards here — placeholder for future cards</p>
     </section>
 
-    <section class="board-tracker card">
+    <section class="board-tracker card" style="grid-column:1/-1;">
       <div class="card-head" style="margin-bottom:0.4rem;">
         <h3 style="font-size:0.95rem;">Wire Tracker</h3>
         <span class="badge badge--muted">Board</span>

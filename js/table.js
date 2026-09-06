@@ -420,32 +420,65 @@ function render(session) {
   const trackerEl = document.getElementById("wire-tracker");
   if (trackerEl) {
     trackerEl.innerHTML = "";
+    trackerEl.style.display = "flex";
+    trackerEl.style.alignItems = "center";
+    trackerEl.style.gap = "0.2rem";
+    trackerEl.style.flexWrap = "nowrap";
+    trackerEl.style.overflowX = "auto";
     const totals = getKeyTotals(session.config);
     const rawCutLog = session.public.cutLog || {};
     const max = session.config.wireCount || 12;
     const hands = session.hands || {};
-    const yellows = new Set();
-    const reds = new Set();
-    Object.values(hands).forEach((hand) => hand.forEach((w) => {
-      if (w.type === "yellow") yellows.add(Math.floor(w.value));
-      if (w.type === "red") reds.add(Math.floor(w.value));
-    }));
-    Object.values(rawCutLog).forEach((c) => {
-      if (c.type === "yellow" && c.value) yellows.add(Math.floor(c.value));
-      if (c.type === "red" && c.value) reds.add(Math.floor(c.value));
-    });
+    const isCutYellow = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "yellow" && w.value === val && w.cut)) || Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val && c.result === "cut");
+    const isCutRed = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "red" && w.value === val && w.cut)) || Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val && c.result === "cut");
+    const hasYellow = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "yellow" && w.value === val)) || Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val);
+    const hasRed = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "red" && w.value === val)) || Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val);
     for (let v = 1; v <= max; v++) {
       const total = totals[v] ?? 4;
       const cut = cutCountForKey(rawCutLog, v);
       const done = cut >= total;
       const cell = document.createElement("div");
       cell.className = "tracker-cell" + (done ? " tracker-cell--done" : "");
-      const hasY = yellows.has(v);
-      const hasR = reds.has(v);
-      const markers = (hasY ? `<span class="tracker-y" title="Yellow ${v}.1 in play">Y</span>` : "") + (hasR ? `<span class="tracker-r" title="Red ${v}.5 in play">R</span>` : "");
-      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span>${markers ? `<span class="tracker-markers">${markers}</span>` : ""}`;
-      cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play` + (hasY ? ` — Y ${v}.1 present` : "") + (hasR ? ` — R ${v}.5 present` : "");
+      cell.style.minWidth = "52px";
+      cell.style.flexShrink = "0";
+      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span>`;
+      cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play`;
       trackerEl.appendChild(cell);
+      if (v < max) {
+        const gap = document.createElement("div");
+        gap.className = "tracker-gap";
+        gap.style.display = "flex";
+        gap.style.flexDirection = "column";
+        gap.style.gap = "3px";
+        gap.style.alignItems = "center";
+        gap.style.minWidth = "22px";
+        gap.style.flexShrink = "0";
+        const yVal = +(v + 0.1).toFixed(1);
+        const rVal = +(v + 0.5).toFixed(1);
+        const yExists = hasYellow(yVal);
+        const rExists = hasRed(rVal);
+        const yCut = yExists && isCutYellow(yVal);
+        const rCut = rExists && isCutRed(rVal);
+        const yDot = document.createElement("span");
+        yDot.className = "tracker-dot tracker-dot--inter tracker-dot--yellow" + (!yExists || yCut ? " hidden" : "");
+        yDot.textContent = "●";
+        yDot.title = yExists && !yCut ? `Yellow ${yVal} in play` : `Yellow ${yVal} cut`;
+        yDot.style.color = "var(--yellow)";
+        yDot.style.fontSize = "0.95rem";
+        yDot.style.lineHeight = "1";
+        yDot.style.display = yExists && !yCut ? "inline" : "none";
+        const rDot = document.createElement("span");
+        rDot.className = "tracker-dot tracker-dot--inter tracker-dot--red" + (!rExists || rCut ? " hidden" : "");
+        rDot.textContent = "●";
+        rDot.title = rExists && !rCut ? `Red ${rVal} in play` : `Red ${rVal} cut`;
+        rDot.style.color = "var(--danger)";
+        rDot.style.fontSize = "0.95rem";
+        rDot.style.lineHeight = "1";
+        rDot.style.display = rExists && !rCut ? "inline" : "none";
+        gap.appendChild(yDot);
+        gap.appendChild(rDot);
+        trackerEl.appendChild(gap);
+      }
     }
   }
 

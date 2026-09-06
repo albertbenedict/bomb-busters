@@ -56,8 +56,8 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
 
 function wireLabel(wire) {
   if (wire.type === "blue") return String(wire.value);
-  if (wire.type === "yellow") return "Y";
-  return "R";
+  if (wire.type === "yellow") return String(wire.value);
+  return String(wire.value);
 }
 
 let prevHandCut = [];
