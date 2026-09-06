@@ -175,7 +175,7 @@ function render(session) {
       const capBadge = document.createElement("span");
       capBadge.className = "badge";
       capBadge.style.marginLeft = "0.35rem";
-      capBadge.textContent = "👑 Captain";
+      capBadge.textContent = "Captain";
       nameEl.appendChild(capBadge);
     }
     head.appendChild(nameEl);
