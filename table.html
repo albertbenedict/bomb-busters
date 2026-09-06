@@ -13,69 +13,63 @@
 </nav>
 
 <main class="table-board">
-  <!-- Top: 5 equipment slots (always 5, per your note) -->
-  <section class="board-equipment" aria-label="Equipment">
-    <div id="equipment-pool" class="equipment-pool equipment-pool--board"></div>
-  </section>
-
-  <!-- Room code bar (long white) -->
-  <section class="board-code card center room-share">
-    <p class="muted" style="margin-bottom:0.35rem;">Share this room code</p>
-    <div class="room-code-wrap">
-      <div class="room-code" id="room-code">----</div>
-      <button id="copy-code-btn" class="btn-copy" aria-label="Copy room code" title="Copy code">⧉ Copy</button>
-    </div>
-    <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center; flex-direction:column;"></p>
-    <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
-  </section>
-
-  <!-- Central area: 5 players around bomb + tracker (per your 5P layout) -->
-  <section class="board-center">
-    <!-- Left column: 2 players -->
-    <div class="board-players board-players--left">
-      <div class="board-player-slot" data-slot="0"></div>
-      <div class="board-player-slot" data-slot="2"></div>
-    </div>
-
-    <!-- Middle: tracker (top) + 5th player (when 5P) + bomb (center) -->
-    <div class="board-middle">
-      <div class="board-tracker card">
-        <div class="card-head" style="margin-bottom:0.4rem;">
-          <h3 style="font-size:0.95rem;">Wire Tracker</h3>
-          <span class="badge badge--muted">Board</span>
-        </div>
-        <div id="wire-tracker" class="wire-tracker wire-tracker--dots"></div>
+  <div class="board-top">
+    <section class="board-code card center room-share">
+      <p class="muted" style="margin-bottom:0.35rem;">Share this room code</p>
+      <div class="room-code-wrap">
+        <div class="room-code" id="room-code">----</div>
+        <button id="copy-code-btn" class="btn-copy" aria-label="Copy room code" title="Copy code">⧉ Copy</button>
       </div>
+      <p id="table-error" class="form-error hidden" style="margin-top:0.75rem; justify-content:center; flex-direction:column;"></p>
+      <p id="table-conn" class="muted" style="font-size:0.82rem; margin-top:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;"><span id="table-conn-dot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block;"></span><span id="table-conn-text">Connecting…</span></p>
+    </section>
 
-      <!-- 5th player — centered above bomb when 5P, per your layout -->
-      <div class="board-player-slot board-player-slot--center hidden" data-slot="4"></div>
+    <section class="board-equipment card center" aria-label="Equipment">
+      <div class="card-head" style="margin-bottom:0.4rem; justify-content:center;"><h3 style="font-size:0.95rem;">Equipment</h3></div>
+      <div id="equipment-pool" class="equipment-pool equipment-pool--vertical"></div>
+    </section>
 
-      <div class="board-bomb">
-        <div class="bomb-graphic" aria-hidden="true">
-          <div class="bomb-sticks">
-            <span></span><span></span><span></span><span></span><span></span><span></span>
-          </div>
-          <div class="bomb-fuse">◉</div>
-          <div class="bomb-dial" id="bomb-dial">
-            <div class="bomb-dial__needle" id="detonator-needle" aria-hidden="true"></div>
-            <div class="bomb-dial__center"></div>
-            <div id="detonator" class="hidden">0 / 0</div>
-            <div id="detonator-meter" class="hidden"></div>
-            <div id="detonator-badge" class="hidden">Safe</div>
-          </div>
-        </div>
-        <div id="detonator-label" class="muted" style="font-size:0.8rem; margin-top:0.4rem; text-align:center;"></div>
+    <section class="board-detonator card center">
+      <div class="card-head" style="margin-bottom:0.4rem; justify-content:center;">
+        <h3 style="font-size:0.95rem;">Detonator</h3>
+        <span id="detonator-badge" class="badge badge--danger hidden" style="margin-left:0.4rem;"></span>
       </div>
-    </div>
+      <div class="bomb-dial" id="bomb-dial">
+        <div class="bomb-dial__needle" id="detonator-needle" aria-hidden="true"></div>
+        <div class="bomb-dial__center"></div>
+        <div id="detonator" class="hidden">0 / 0</div>
+        <div id="detonator-meter" class="hidden"></div>
+      </div>
+      <div id="detonator-label" class="muted" style="font-size:0.8rem; margin-top:0.5rem; text-align:center;"></div>
+    </section>
+  </div>
 
-    <!-- Right column: 2 players -->
-    <div class="board-players board-players--right">
-      <div class="board-player-slot" data-slot="1"></div>
-      <div class="board-player-slot" data-slot="3"></div>
-    </div>
+  <div class="board-mid">
+    <section class="board-mission card center">
+      <div class="card-head" style="margin-bottom:0.4rem;">
+        <h3 style="font-size:0.95rem;">Mission Board</h3>
+        <span class="badge badge--muted">M1</span>
+      </div>
+      <p class="muted" style="font-size:0.82rem;">Place mission cards here — placeholder for future cards</p>
+    </section>
+
+    <section class="board-tracker card">
+      <div class="card-head" style="margin-bottom:0.4rem;">
+        <h3 style="font-size:0.95rem;">Wire Tracker</h3>
+        <span class="badge badge--muted">Board</span>
+      </div>
+      <div id="wire-tracker" class="wire-tracker wire-tracker--dots"></div>
+    </section>
+  </div>
+
+  <section class="board-bottom" aria-label="Players">
+    <div class="board-player-slot" data-slot="0"></div>
+    <div class="board-player-slot" data-slot="1"></div>
+    <div class="board-player-slot" data-slot="2"></div>
+    <div class="board-player-slot" data-slot="3"></div>
+    <div class="board-player-slot board-player-slot--center" data-slot="4"></div>
   </section>
 
-  <!-- Hidden original team list for JS fallback / accessibility — rendered into slots -->
   <section class="card hidden" aria-hidden="true">
     <ul id="players"></ul>
     <span id="lobby-badge" class="hidden"></span>

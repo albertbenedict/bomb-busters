@@ -3,7 +3,7 @@ import {
   ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
-import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey } from "./game-logic.js";
+import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -282,9 +282,11 @@ function render(session) {
   detonatorEl.classList.toggle("warn", danger);
 
   const detonatorBadge = document.getElementById("detonator-badge");
-  detonatorBadge.textContent = critical ? "Exploded" : danger ? "Danger" : "Safe";
-  detonatorBadge.classList.toggle("badge--danger", danger);
-  detonatorBadge.classList.toggle("badge--muted", !danger);
+  if (detonatorBadge) {
+    detonatorBadge.textContent = critical ? "Exploded" : danger ? "Danger" : "";
+    detonatorBadge.classList.toggle("badge--danger", danger);
+    detonatorBadge.classList.toggle("hidden", !danger && !critical);
+  }
 
 
   // Old meter now hidden — using 6-segment dial
@@ -388,10 +390,13 @@ function render(session) {
     dialSvg.appendChild(center);
   }
   if (needle) {
-    const clamped = Math.min(detonator.position, 5);
-    const angle = (clamped / 6) * 360;
+    const max = detonator.max || getDetonatorMax(Object.keys(session.public.players || {}).length || 4);
+    const clamped = Math.min(detonator.position, Math.max(0, max - 1));
+    const startAngle = (210 + max * 60) % 360;
+    const angle = startAngle - clamped * 60 + 30;
     needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
     needle.style.opacity = critical ? "0.9" : "1";
+    needle.title = `${max} lives — starting at ${max}-cat segment center`;
   }
 
   prevDetonatorPosition = detonator.position;
@@ -412,21 +417,34 @@ function render(session) {
   document.getElementById("yellow-count").textContent = `${yellowCut} / ${session.config.yellowCount ?? 0}`;
   document.getElementById("red-count").textContent = `${redCut} / ${session.config.redCount ?? 0}`;
 
-  // Wire Tracker 
   const trackerEl = document.getElementById("wire-tracker");
   if (trackerEl) {
     trackerEl.innerHTML = "";
     const totals = getKeyTotals(session.config);
     const rawCutLog = session.public.cutLog || {};
     const max = session.config.wireCount || 12;
+    const hands = session.hands || {};
+    const yellows = new Set();
+    const reds = new Set();
+    Object.values(hands).forEach((hand) => hand.forEach((w) => {
+      if (w.type === "yellow") yellows.add(Math.floor(w.value));
+      if (w.type === "red") reds.add(Math.floor(w.value));
+    }));
+    Object.values(rawCutLog).forEach((c) => {
+      if (c.type === "yellow" && c.value) yellows.add(Math.floor(c.value));
+      if (c.type === "red" && c.value) reds.add(Math.floor(c.value));
+    });
     for (let v = 1; v <= max; v++) {
       const total = totals[v] ?? 4;
       const cut = cutCountForKey(rawCutLog, v);
       const done = cut >= total;
       const cell = document.createElement("div");
       cell.className = "tracker-cell" + (done ? " tracker-cell--done" : "");
-      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span>`;
-      cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play`;
+      const hasY = yellows.has(v);
+      const hasR = reds.has(v);
+      const markers = (hasY ? `<span class="tracker-y" title="Yellow ${v}.1 in play">Y</span>` : "") + (hasR ? `<span class="tracker-r" title="Red ${v}.5 in play">R</span>` : "");
+      cell.innerHTML = `<span class="tracker-num">${v}</span><span class="tracker-dot">${done ? "●" : "○"}</span>${markers ? `<span class="tracker-markers">${markers}</span>` : ""}`;
+      cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play` + (hasY ? ` — Y ${v}.1 present` : "") + (hasR ? ` — R ${v}.5 present` : "");
       trackerEl.appendChild(cell);
     }
   }
@@ -447,7 +465,6 @@ function render(session) {
     statusEl.className = "banner hidden";
   }
 
-  // Equipment pool 
   const eqEl = document.getElementById("equipment-pool");
   if (eqEl) {
     eqEl.innerHTML = "";
@@ -458,7 +475,7 @@ function render(session) {
       const entry = entries[i];
       const chip = document.createElement("span");
       if (!entry) {
-        chip.className = "eq-chip eq-chip--locked";
+        chip.className = "eq-chip eq-chip--vertical eq-chip--locked";
         chip.textContent = "—";
         chip.title = "Equipment slot — will be assigned at deal";
       } else {
@@ -466,7 +483,7 @@ function render(session) {
         const cnt = cutCountForKey(cutLog, e.unlockValue);
         const isUsed = !!e.used;
         const isUnlocked = !isUsed && cnt >= 2;
-        chip.className = "eq-chip" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
+        chip.className = "eq-chip eq-chip--vertical" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
         chip.textContent = isUsed ? `Used · ${e.unlockValue}s` : isUnlocked ? `Ready · ${e.unlockValue}s` : `Locked · ${e.unlockValue}s`;
         chip.title = isUsed ? `Used (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked — defuse one mistake` : `Needs 2 cuts of ${e.unlockValue}s (${cnt}/2)`;
       }
@@ -546,6 +563,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   if (captainId && playerIds.includes(captainId)) {
     playerIds = [captainId, ...playerIds.filter((id) => id !== captainId)];
   }
+  const detonatorMax = getDetonatorMax(playerIds.length);
   const deck = buildDeck(session.config);
   const hands = dealHands(deck, playerIds, captainId);
   const equipment = generateEquipment(playerIds.length, session.config.wireCount);
@@ -567,6 +585,8 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   updates["public/infoTokens"] = {};
   updates["public/validationTokens"] = {};
   updates["public/detonator/position"] = 0;
+  updates["public/detonator/max"] = detonatorMax;
+  updates["config/detonatorMax"] = detonatorMax;
   updates["public/equipment"] = equipment;
   if (hintsEnabled) {
     updates["public/hints"] = {};

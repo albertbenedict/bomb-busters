@@ -68,6 +68,11 @@ export function dealHands(deck, playerIds, captainId = null) {
   return result;
 }
 
+export function getDetonatorMax(playerCount) {
+  const n = Math.max(2, Math.min(5, Math.round(Number(playerCount) || 4)));
+  return Math.max(1, Math.min(5, 7 - n));
+}
+
 export const MISSIONS = [
   {
     id: 1,
