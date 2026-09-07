@@ -484,39 +484,43 @@ function render(session) {
       cell.title = done ? `All ${total} × ${v}s cut` : `${cut}/${total} × ${v}s still in play`;
       trackerEl.appendChild(cell);
       if (v < max) {
-        const gap = document.createElement("div");
-        gap.className = "tracker-gap";
-        gap.style.display = "flex";
-        gap.style.flexDirection = "column";
-        gap.style.gap = "3px";
-        gap.style.alignItems = "center";
-        gap.style.minWidth = "22px";
-        gap.style.flexShrink = "0";
         const yVal = +(v + 0.1).toFixed(1);
         const rVal = +(v + 0.5).toFixed(1);
         const yExists = hasYellow(yVal);
         const rExists = hasRed(rVal);
         const yCut = yExists && isCutYellow(yVal);
         const rCut = rExists && isCutRed(rVal);
-        const yDot = document.createElement("span");
-        yDot.className = "tracker-dot tracker-dot--inter tracker-dot--yellow" + (!yExists || yCut ? " hidden" : "");
-        yDot.textContent = "●";
-        yDot.title = yExists && !yCut ? `Yellow ${yVal} in play` : `Yellow ${yVal} cut`;
-        yDot.style.color = "var(--yellow)";
-        yDot.style.fontSize = "0.95rem";
-        yDot.style.lineHeight = "1";
-        yDot.style.display = yExists && !yCut ? "inline" : "none";
-        const rDot = document.createElement("span");
-        rDot.className = "tracker-dot tracker-dot--inter tracker-dot--red" + (!rExists || rCut ? " hidden" : "");
-        rDot.textContent = "●";
-        rDot.title = rExists && !rCut ? `Red ${rVal} in play` : `Red ${rVal} cut`;
-        rDot.style.color = "var(--danger)";
-        rDot.style.fontSize = "0.95rem";
-        rDot.style.lineHeight = "1";
-        rDot.style.display = rExists && !rCut ? "inline" : "none";
-        gap.appendChild(yDot);
-        gap.appendChild(rDot);
-        trackerEl.appendChild(gap);
+        if (yExists && !yCut || rExists && !rCut) {
+          const gap = document.createElement("div");
+          gap.className = "tracker-gap";
+          gap.style.display = "flex";
+          gap.style.flexDirection = "column";
+          gap.style.gap = "3px";
+          gap.style.alignItems = "center";
+          gap.style.minWidth = "22px";
+          gap.style.flexShrink = "0";
+          if (yExists && !yCut) {
+            const yDot = document.createElement("span");
+            yDot.className = "tracker-dot tracker-dot--inter tracker-dot--yellow";
+            yDot.textContent = "●";
+            yDot.title = `Yellow ${yVal} in play`;
+            yDot.style.color = "var(--yellow)";
+            yDot.style.fontSize = "0.95rem";
+            yDot.style.lineHeight = "1";
+            gap.appendChild(yDot);
+          }
+          if (rExists && !rCut) {
+            const rDot = document.createElement("span");
+            rDot.className = "tracker-dot tracker-dot--inter tracker-dot--red";
+            rDot.textContent = "●";
+            rDot.title = `Red ${rVal} in play`;
+            rDot.style.color = "var(--danger)";
+            rDot.style.fontSize = "0.95rem";
+            rDot.style.lineHeight = "1";
+            gap.appendChild(rDot);
+          }
+          trackerEl.appendChild(gap);
+        }
       }
     }
   }
