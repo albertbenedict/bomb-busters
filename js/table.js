@@ -541,6 +541,8 @@ function render(session) {
     statusEl.className = "banner hidden";
   }
 
+  toggleWinOverlay(session);
+
   const eqEl = document.getElementById("equipment-pool");
   if (eqEl) {
     eqEl.innerHTML = "";
@@ -746,6 +748,67 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
   });
   await update(ref(db, `sessions/${code}`), updates);
 });
+
+function toggleWinOverlay(session) {
+  const existing = document.getElementById("win-overlay");
+  const isWon = session.status === "won";
+  const isLost = session.status === "lost";
+  if (!isWon && !isLost) {
+    if (existing) existing.remove();
+    return;
+  }
+  let overlay = existing;
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "win-overlay";
+    overlay.className = "win-overlay" + (isLost ? " win-overlay--loss" : "");
+    const confetti = document.createElement("div");
+    confetti.className = "win-overlay__confetti";
+    const emojis = isLost ? ["💥","💣","🔥"] : ["🎉","✨","🎊","⭐","🎈"];
+    for (let i = 0; i < 28; i++) {
+      const s = document.createElement("span");
+      s.textContent = emojis[i % emojis.length];
+      s.style.left = Math.random() * 100 + "%";
+      s.style.animationDuration = (2.2 + Math.random() * 2.2) + "s";
+      s.style.animationDelay = Math.random() * 1.2 + "s";
+      confetti.appendChild(s);
+    }
+    overlay.appendChild(confetti);
+    const stars = document.createElement("div");
+    stars.className = "win-overlay__stars";
+    stars.textContent = isLost ? "💥 💣 💥" : "✨ 🎉 ✨";
+    overlay.appendChild(stars);
+    const title = document.createElement("div");
+    title.className = "win-overlay__title";
+    title.textContent = isLost ? "BOOM!" : "WIN!";
+    overlay.appendChild(title);
+    const sub = document.createElement("div");
+    sub.className = "win-overlay__subtitle";
+    sub.textContent = isLost ? "Bomb exploded — mission failed" : "Mission complete — every wire cut!";
+    overlay.appendChild(sub);
+    const actions = document.createElement("div");
+    actions.className = "win-overlay__actions";
+    const resetBtn = document.createElement("button");
+    resetBtn.className = "win-overlay__btn";
+    resetBtn.textContent = "↺ Play again";
+    resetBtn.onclick = () => document.getElementById("reset-btn")?.click();
+    actions.appendChild(resetBtn);
+    const dismissBtn = document.createElement("button");
+    dismissBtn.className = "win-overlay__btn win-overlay__btn--ghost";
+    dismissBtn.textContent = "Dismiss";
+    dismissBtn.onclick = () => overlay.remove();
+    actions.appendChild(dismissBtn);
+    overlay.appendChild(actions);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  } else {
+    overlay.className = "win-overlay" + (isLost ? " win-overlay--loss" : "");
+    const t = overlay.querySelector(".win-overlay__title");
+    if (t) t.textContent = isLost ? "BOOM!" : "WIN!";
+    const s = overlay.querySelector(".win-overlay__subtitle");
+    if (s) s.textContent = isLost ? "Bomb exploded — mission failed" : "Mission complete — every wire cut!";
+  }
+}
 
 document.getElementById("end-btn").addEventListener("click", async () => {
   if (!confirm("End session? This deletes the room for everyone.")) return;
