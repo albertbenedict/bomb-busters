@@ -112,25 +112,12 @@ export function getKeyTotals(config) {
 
 export function getSoloCutEligibleKey(hand, cutLog, config) {
   if (!hand || !config) return null;
-  const totals = getKeyTotals(config);
-  const counts = {};
-  hand.forEach((wire) => {
-    if (!wire.cut && wire.guessKey != null) {
-      counts[wire.guessKey] = (counts[wire.guessKey] || 0) + 1;
-    }
-  });
-  for (const rawKey of Object.keys(counts)) {
-    const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
-    const total = totals[key] ?? 4;
-    const remaining = total - cutCountForKey(cutLog, key);
-    if (remaining === counts[rawKey]) return key;
-  }
-  return null;
+  const keys = getAllSoloCutEligibleKeys(hand, cutLog, config);
+  return keys.length ? keys[0] : null;
 }
 
 export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
   if (!hand || !config) return [];
-  const totals = getKeyTotals(config);
   const counts = {};
   hand.forEach((wire) => {
     if (!wire.cut && wire.guessKey != null) {
@@ -140,9 +127,7 @@ export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
   const out = [];
   for (const rawKey of Object.keys(counts)) {
     const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
-    const total = totals[key] ?? 4;
-    const remaining = total - cutCountForKey(cutLog, key);
-    if (remaining === counts[rawKey]) out.push(key);
+    if (cutCountForKey(cutLog, key) >= 1) out.push(key);
   }
   return out;
 }
