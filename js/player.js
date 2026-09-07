@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint } from "./game-logic.js";
+import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -166,11 +166,23 @@ function render() {
   renderHints();
   renderHintActions(isMyHintTurn);
 
-  const soloKey = getSoloCutEligibleKey(myHand, session.public.cutLog, session.config);
+  const soloKeys = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
   const soloBtn = document.getElementById("solo-btn");
-  soloBtn.classList.toggle("hidden", !(soloKey !== null && canAct));
-  soloBtn.textContent = soloKey === "yellow" ? "Solo cut your yellows" : `Solo cut your ${soloKey}s`;
-  soloBtn.onclick = () => performSoloCut(soloKey);
+  const showSolo = soloKeys.length > 0 && canAct;
+  soloBtn.classList.toggle("hidden", !showSolo);
+  if (showSolo) {
+    if (soloKeys.length === 1) {
+      const k = soloKeys[0];
+      soloBtn.textContent = k === "yellow" ? "Solo cut your yellows" : `Solo cut your ${k}s`;
+      soloBtn.onclick = () => performSoloCut(k);
+    } else {
+      soloBtn.textContent = `Solo cut: ${soloKeys.map((k) => k === "yellow" ? "Yellow" : k).join(", ")}`;
+      soloBtn.onclick = () => {
+        if (soloKeys.includes(12)) performSoloCut(12);
+        else performSoloCut(soloKeys[0]);
+      };
+    }
+  }
 
   const canReveal = canRevealRedWires(myHand);
   const revealBtn = document.getElementById("reveal-red-btn");
@@ -542,7 +554,11 @@ async function resolvePendingGuess(guess) {
   };
 
   let newDetonatorPos = session.public.detonator.position;
-  if (correct) {
+  const isRed = wire.type === "red";
+  if (isRed) {
+    updates.status = "lost";
+    updates[`public/detonator/position`] = session.public.detonator.max;
+  } else if (correct) {
     updates[`hands/${playerId}/${guess.position}/cut`] = true;
   } else {
     updates[`public/infoTokens/info_${stamp}`] = {
@@ -553,11 +569,11 @@ async function resolvePendingGuess(guess) {
   }
 
   updates.lastOutcome = {
-    by: guess.by, target: playerId, correct, guessKey: wire.guessKey,
-    position: guess.position, acknowledged: false, at: stamp,
+    by: guess.by, target: playerId, correct: isRed ? false : correct, guessKey: wire.guessKey,
+    position: guess.position, acknowledged: false, at: stamp, isRed,
   };
 
-  if (newDetonatorPos >= session.public.detonator.max) {
+  if (!isRed && newDetonatorPos >= session.public.detonator.max) {
     updates.status = "lost";
   }
 

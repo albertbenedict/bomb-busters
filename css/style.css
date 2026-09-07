@@ -421,10 +421,6 @@ li:last-child { border-bottom: none; }
 }
 .btn-reveal:hover:not(:disabled) { opacity: 0.88; }
 
-/* =========================================================
-   PRESENTATION PASS — refine, don't replace
-   ========================================================= */
-
 /* Room code — share moment */
 .room-share .room-code {
   font-size: 2.6rem;

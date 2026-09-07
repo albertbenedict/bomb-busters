@@ -110,10 +110,6 @@ export function getKeyTotals(config) {
   return totals;
 }
 
-// Returns a guessKey (a number, or "yellow") the active player can
-// solo-cut, or null. Eligible when every remaining copy of that key is
-// sitting in their own uncut hand — only needs their own hand + public
-// data, so it's always safe to compute on the client.
 export function getSoloCutEligibleKey(hand, cutLog, config) {
   if (!hand || !config) return null;
   const totals = getKeyTotals(config);
@@ -130,6 +126,25 @@ export function getSoloCutEligibleKey(hand, cutLog, config) {
     if (remaining === counts[rawKey]) return key;
   }
   return null;
+}
+
+export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
+  if (!hand || !config) return [];
+  const totals = getKeyTotals(config);
+  const counts = {};
+  hand.forEach((wire) => {
+    if (!wire.cut && wire.guessKey != null) {
+      counts[wire.guessKey] = (counts[wire.guessKey] || 0) + 1;
+    }
+  });
+  const out = [];
+  for (const rawKey of Object.keys(counts)) {
+    const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
+    const total = totals[key] ?? 4;
+    const remaining = total - cutCountForKey(cutLog, key);
+    if (remaining === counts[rawKey]) out.push(key);
+  }
+  return out;
 }
 
 // True once every remaining wire in hand is red — the only condition
