@@ -118,6 +118,7 @@ export function getSoloCutEligibleKey(hand, cutLog, config) {
 
 export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
   if (!hand || !config) return [];
+  const totals = getKeyTotals(config);
   const counts = {};
   hand.forEach((wire) => {
     if (!wire.cut && wire.guessKey != null) {
@@ -127,7 +128,10 @@ export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
   const out = [];
   for (const rawKey of Object.keys(counts)) {
     const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
-    if (cutCountForKey(cutLog, key) >= 1) out.push(key);
+    const total = totals[key] ?? 4;
+    const remaining = total - cutCountForKey(cutLog, key);
+    const hasCut = cutCountForKey(cutLog, key) >= 1;
+    if (remaining === counts[rawKey] || hasCut) out.push(key);
   }
   return out;
 }
