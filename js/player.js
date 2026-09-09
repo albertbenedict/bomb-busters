@@ -177,10 +177,7 @@ function render() {
       soloBtn.onclick = () => performSoloCut(k);
     } else {
       soloBtn.textContent = `Solo cut: ${soloKeys.map((k) => k === "yellow" ? "Yellow" : k).join(", ")}`;
-      soloBtn.onclick = () => {
-        if (soloKeys.includes(12)) performSoloCut(12);
-        else performSoloCut(soloKeys[0]);
-      };
+      soloBtn.onclick = () => performSoloCut(soloKeys);
     }
   }
 
@@ -598,22 +595,22 @@ async function reactToOutcome(outcome) {
   checkWin();
 }
 
-async function performSoloCut(guessKey) {
+async function performSoloCut(guessKeyOrKeys) {
+  const keys = Array.isArray(guessKeyOrKeys) ? guessKeyOrKeys : [guessKeyOrKeys];
   const myHand = session.hands[playerId];
   const stamp = Date.now();
   const updates = {};
 
-  // Physical rule: if you hold all remaining copies of that value, cut them all at once
   myHand.forEach((wire, i) => {
-    if (String(wire.guessKey) === String(guessKey) && !wire.cut) {
+    if (keys.some((k) => String(wire.guessKey) === String(k)) && !wire.cut) {
       updates[`hands/${playerId}/${i}/cut`] = true;
       updates[`public/cutLog/log_${stamp}_${i}`] = {
-        ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
+        ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey: wire.guessKey,
         guessedBy: playerId, result: "cut", action: "solo",
       };
     }
   });
-  updates[`public/validationTokens/${guessKey}`] = true;
+  keys.forEach((k) => { updates[`public/validationTokens/${k}`] = true; });
   updates.currentTurn = nextTurn();
 
   await update(ref(db, `sessions/${code}`), updates);

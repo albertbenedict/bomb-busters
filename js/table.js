@@ -214,7 +214,7 @@ function render(session) {
       const tile = document.createElement("div");
       if (isCut) {
         tile.className = `wire-tile wire-tile--revealed wire-tile--${w.type}`;
-        tile.textContent = w.type === "yellow" ? "Y" : w.type === "red" ? "R" : String(w.value ?? "");
+        tile.textContent = String(w.value ?? "");
       } else {
         tile.className = "wire-tile wire-tile--down" + (pending ? " wire-tile--pending" : "");
         tile.innerHTML = `<span class="wire-line"></span>`;
@@ -466,12 +466,12 @@ function render(session) {
     trackerEl.style.overflowX = "auto";
     const totals = getKeyTotals(session.config);
     const rawCutLog = session.public.cutLog || {};
+    const rawInfoTokens = session.public.infoTokens || {};
     const max = session.config.wireCount || 12;
-    const hands = session.hands || {};
-    const isCutYellow = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "yellow" && w.value === val && w.cut)) || Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val && c.result === "cut");
-    const isCutRed = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "red" && w.value === val && w.cut)) || Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val && c.result === "cut");
-    const hasYellow = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "yellow" && w.value === val)) || Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val);
-    const hasRed = (val) => Object.values(hands).some((hand) => hand.some((w) => w.type === "red" && w.value === val)) || Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val);
+    const isCutYellow = (val) => Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val && c.result === "cut");
+    const isCutRed = (val) => Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val && c.result === "cut");
+    const hasYellow = (val) => Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val) || Object.values(rawInfoTokens).some((t) => t.type === "yellow" && t.value === val);
+    const hasRed = (val) => Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val) || Object.values(rawInfoTokens).some((t) => t.type === "red" && t.value === val);
     for (let v = 1; v <= max; v++) {
       const total = totals[v] ?? 4;
       const cut = cutCountForKey(rawCutLog, v);
