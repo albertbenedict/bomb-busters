@@ -11,7 +11,6 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise.finally(() => clearTimeout(t)), timeout]);
 }
 
-// No ambiguous chars (0/O, 1/I) so a code is easy to read aloud across the table.
 function generateCode(length = 4) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -20,7 +19,6 @@ function generateCode(length = 4) {
 }
 
 export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCount = 4, redCount = 2, hintsEnabled = true } = {}) {
-  // Defensive clamp – matches index.html + rules (yellow even 2..6, red 1..3)
   yellowCount = Math.max(2, Math.min(6, Math.round(Number(yellowCount) || 4)));
   if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1);
   redCount = Math.max(1, Math.min(3, Math.round(Number(redCount) || 2)));
@@ -56,8 +54,6 @@ export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCo
 export async function joinSession(code, playerName, storedId = null) {
   const nameTrim = playerName.trim();
 
-  // 1) Device-based reconnect – stored playerId for this room (localStorage).
-  //    This is the correct key: "this device already has a seat here."
   if (storedId) {
     try {
       const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
@@ -81,8 +77,6 @@ export async function joinSession(code, playerName, storedId = null) {
     }
   }
 
-  // 2) Fallback for devices that cleared storage: only reuse an *offline* seat with the same name.
-  //    Never steal an active (connected:true) seat – allows two "Sam"s on different devices.
   try {
     const playersSnap = await withTimeout(get(ref(db, `sessions/${code}/public/players`)), 5000, "Checking players");
     const players = playersSnap.val() || {};
@@ -102,7 +96,6 @@ export async function joinSession(code, playerName, storedId = null) {
     console.warn("offline name check failed", e);
   }
 
-  // 3) No reusable seat – create a fresh playerId (allows duplicate display names).
   const playerId = "p_" + Math.random().toString(36).slice(2, 9);
   await withTimeout(set(ref(db, `sessions/${code}/public/players/${playerId}`), {
     name: nameTrim,

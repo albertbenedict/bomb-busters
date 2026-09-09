@@ -84,7 +84,6 @@ function render() {
     let extra = "";
     if (!wasCut && nowCut) extra = " wire--cutting";
     else if (!hasRenderedHand) extra = " wire--enter";
-    // make own blue wires hintable
     const hintable = isMyHintTurn && wire.type === "blue" && !wire.cut;
     div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra + (hintable ? " wire--hintable" : "");
     div.textContent = wireLabel(wire);
@@ -103,7 +102,6 @@ function render() {
     const remaining = myHand.filter((w) => !w.cut).length;
     countBadge.textContent = myHand.length ? `${remaining} left · ${myHand.length} total` : "—";
   }
-
 
   const canAct = !isHintPhase && session.currentTurn === playerId && session.status === "in_progress";
   const banner = document.getElementById("turn-banner");
@@ -232,7 +230,6 @@ function renderTargets(canAct) {
     head.appendChild(meta);
     group.appendChild(head);
 
-    // Factual blue hint + wrong reveals for this teammate
     const hints = session.public.hints || {};
     const myHint = hints[id];
     if (myHint) {
@@ -245,7 +242,6 @@ function renderTargets(canAct) {
       hintRow.appendChild(chip);
       group.appendChild(hintRow);
     }
-    // Wrong auto-hints for this owner only (target was this player)
     const infoTokens = session.public.infoTokens || {};
     const wrongs = Object.values(infoTokens).filter((t) => t.ownerId === id);
     if (wrongs.length) {
@@ -352,7 +348,6 @@ function renderEquipment(canAct) {
   wrap.innerHTML = "";
   const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
   if (!usable.length || !canAct || session.status !== "in_progress") return;
-  // Free safety-net: doesn't end turn, just defuses detonator by 1 (min 0)
   const atZero = (session.public.detonator?.position || 0) <= 0;
   usable.forEach((eq) => {
     const btn = document.createElement("button");
@@ -386,7 +381,6 @@ function renderHints() {
     });
     return;
   }
-  // Factual hints in turnOrder
   const order = session.public.hintOrder || session.turnOrder || Object.keys(players);
   order.forEach((pid) => {
     const p = players[pid];
@@ -404,7 +398,6 @@ function renderHints() {
     }
     list.appendChild(chip);
   });
-  // Wrong auto-reveals as "was" (target only)
   Object.values(infoTokens).forEach((tok) => {
     const owner = players[tok.ownerId];
     const chip = document.createElement("span");
@@ -455,8 +448,8 @@ async function submitHint(position) {
   const hints = session.public.hints || {};
   const hintOrder = session.public.hintOrder || session.turnOrder || [];
   const hintIndex = session.public.hintIndex ?? 0;
-  if (hints[playerId]) return; // already given
-  if (hintOrder[hintIndex] !== playerId) return; // strict order
+  if (hints[playerId]) return;
+  if (hintOrder[hintIndex] !== playerId) return;
   const myHand = session.hands && session.hands[playerId];
   if (!isBlueHintValid(myHand, position, session.config?.wireCount)) {
     alert("Hint must be a blue wire — yellow and red cannot be hinted. Pick another blue wire.");
@@ -479,7 +472,6 @@ async function useEquipment(equipmentId) {
   if (!session || session.status !== "in_progress") return;
   const pos = session.public.detonator?.position || 0;
   if (pos <= 0) return;
-  // Re-check usable (guard against stale UI / double-click)
   const usableIds = new Set(getUsableEquipment(session.public.equipment, session.public.cutLog).map((e) => e.id));
   if (!usableIds.has(equipmentId)) return;
   const updates = {};
@@ -487,7 +479,6 @@ async function useEquipment(equipmentId) {
   updates[`public/equipment/${equipmentId}/unlocked`] = true;
   updates["public/detonator/position"] = Math.max(0, pos - 1);
   await update(ref(db, `sessions/${code}`), updates);
-  // No turn change — free action
 }
 
 let lastOutcomeAt = 0;
@@ -496,7 +487,6 @@ function renderGuessResult() {
   const el = document.getElementById("guess-result");
   if (!el || !session) return;
   const outcome = session.lastOutcome;
-  // Show for 4s after lastOutcome.at 
   if (outcome && outcome.at && Date.now() - outcome.at < 4200) {
     if (outcome.at === lastOutcomeAt) return; 
     lastOutcomeAt = outcome.at;

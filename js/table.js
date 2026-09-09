@@ -29,7 +29,6 @@ function segmentPath(cx, cy, r, startDeg, endDeg) {
   const large = endDeg - startDeg > 180 ? 1 : 0;
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
-// Cat head path — white outline on black in source, filled black on dial segments
 const CAT_HEAD_D = "M -9 -7 C -9 -7 -7 -13 0 -8 C 7 -13 9 -7 9 -7 L 7 6 C 7 9 4 12 0 12 C -4 12 -7 9 -7 6 Z";
 
 function showTableError(message, hint) {
@@ -74,7 +73,6 @@ function showTableError(message, hint) {
   tableErrorEl.style.flexDirection = "column";
 }
 
-// Room code
 const copyBtn = document.getElementById("copy-code-btn");
 if (copyBtn) {
   copyBtn.addEventListener("click", async () => {
@@ -99,7 +97,7 @@ if (!code || code === "undefined" || code === "null" || code.trim() === "") {
   if (copyBtn) copyBtn.classList.add("hidden");
   showTableError(
     "No room code in URL.",
-    "Tap Host game on the lobby to create a room. If you opened table.html directly, go back. Tip: use the same http://<PC-IP>:3000 on all devices (npx serve -l tcp://0.0.0.0:3000 --cors) – don't mix localhost and IP, and don't open via file://."
+    "Tap Host game on the lobby to create a room. If you opened table.html directly, go back. Tip: use the same http:
   );
 } else {
   roomCodeEl.textContent = code;
@@ -143,7 +141,6 @@ function render(session) {
   if (hiddenList) hiddenList.innerHTML = "";
   const allEntries = Object.entries(players);
   const entries = allEntries.slice(0, 5);
-  // Map slots by data-slot for 5P layout (0,1,2,3 left/right, 4 center)
   const slotsByIdx = {};
   slots.forEach((el) => {
     const idx = Number(el.dataset.slot);
@@ -151,7 +148,6 @@ function render(session) {
     el.innerHTML = "";
     el.classList.add("hidden");
   });
-  // Show only needed slots — per-wire board with hint houses below each wire
   const hints = session.public.hints || {};
   const infoTokens = session.public.infoTokens || {};
   const hands = session.hands || {};
@@ -200,7 +196,6 @@ function render(session) {
     head.appendChild(headRight);
     card.appendChild(head);
 
-    // Wires row — quantity = dealt count, face-down black until revealed
     const tray = document.createElement("div");
     tray.className = "player-tray";
     const hand = hands[id] || [];
@@ -231,7 +226,6 @@ function render(session) {
       wrap.appendChild(tile);
       tray.appendChild(wrap);
     }
-    // Hint houses row below tray — aligned under each wire, outside gray background
     const hintRow = document.createElement("div");
     hintRow.className = "hint-row-below";
     for (let pos = 0; pos < p.wireCount; pos++) {
@@ -298,7 +292,6 @@ function render(session) {
     }
   });
 
-  // Empty placeholders for missing players among the 4 corners (hide 5th if not needed)
   const maxSlots = entries.length === 5 ? 5 : 4;
   for (let i = entries.length; i < maxSlots; i++) {
     const slot = slotsByIdx[i];
@@ -307,7 +300,6 @@ function render(session) {
       slot.innerHTML = `<div class="card" style="opacity:0.45; text-align:center;"><p class="muted">Empty</p><p class="muted" style="font-size:0.75rem;">Waiting for player</p></div>`;
     }
   }
-  // Hide 5th center slot when <5 players
   if (slotsByIdx[4] && entries.length < 5) slotsByIdx[4].classList.add("hidden");
 
   if (allEntries.length > 5) {
@@ -328,26 +320,22 @@ function render(session) {
     detonatorBadge.classList.toggle("hidden", !danger && !critical);
   }
 
-
-  // Old meter now hidden — using 6-segment dial
   const meterEl = document.getElementById("detonator-meter");
   if (meterEl) meterEl.innerHTML = "";
-  // Detonator dial — 6 segments matching the reference image (cats 2-3, skull, arrow)
   const dialSvg = document.getElementById("detonator-dial-svg");
   const needle = document.getElementById("detonator-needle");
   if (dialSvg) {
     dialSvg.innerHTML = "";
     const SEGMENTS = 6;
-    // Colors matching the reference: light green, yellow, orange, red, purple, green
     const colors = ["#f1c40f", "#f39c12", "#c0392b", "#7d3c98", "#2ecc71", "#a8e063"];
-    const catCounts = [2, 2, 0, 0, 3, 2]; // per segment: 0:top(2),1:top-right(2),2:right skull,3:bottom-right arrow,4:bottom-left green 3,5:left 2
+    const catCounts = [2, 2, 0, 0, 3, 2];
     const segAngle = 360 / SEGMENTS;
     for (let i = 0; i < SEGMENTS; i++) {
       const color = colors[i];
       const startDeg = (i * segAngle) - 90;
       const endDeg = ((i + 1) * segAngle) - 90;
       const path = segmentPath(50, 50, 48, startDeg, endDeg);
-      const seg = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      const seg = document.createElementNS("http:
       seg.setAttribute("d", path);
       seg.setAttribute("fill", color);
       seg.setAttribute("stroke", "#0f1f1a");
@@ -364,8 +352,8 @@ function render(session) {
           const ang = midDeg + offsetAng;
           const r = 28 + offsetR;
           const pos = polar(50, 50, r, ang);
-          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-          const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const g = document.createElementNS("http:
+          const pathEl = document.createElementNS("http:
           pathEl.setAttribute("d", CAT_HEAD_D);
           pathEl.setAttribute("fill", "#1a1a1a");
           pathEl.setAttribute("stroke", "#f5d76e");
@@ -376,10 +364,9 @@ function render(session) {
           dialSvg.appendChild(g);
         }
       } else if (i === 2) {
-        // Red segment — skull
         const midDeg = (startDeg + endDeg) / 2;
         const pos = polar(50, 50, 28, midDeg);
-        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        const txt = document.createElementNS("http:
         txt.setAttribute("x", pos.x);
         txt.setAttribute("y", pos.y);
         txt.setAttribute("text-anchor", "middle");
@@ -389,27 +376,25 @@ function render(session) {
         txt.textContent = "☠";
         dialSvg.appendChild(txt);
       } else if (i === 3) {
-        // Purple segment — arrow + triangle (bottom right)
         const midDeg = (startDeg + endDeg) / 2;
         const pos = polar(50, 50, 28, midDeg);
-        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        const g = document.createElementNS("http:
         g.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
-        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const arrow = document.createElementNS("http:
         arrow.setAttribute("d", "M -8 -4 L 6 -4 L 6 -7 L 12 0 L 6 7 L 6 4 L -8 4 Z");
         arrow.setAttribute("fill", "#aed6f1");
         arrow.setAttribute("stroke", "#1a1a1a");
         arrow.setAttribute("stroke-width", "0.6");
         arrow.setAttribute("transform", "scale(0.9)");
         g.appendChild(arrow);
-        const tri = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const tri = document.createElementNS("http:
         tri.setAttribute("d", "M -4 6 L 4 6 L 0 -6 Z");
         tri.setAttribute("fill", "#f9e79f");
         tri.setAttribute("stroke", "#1a1a1a");
         tri.setAttribute("stroke-width", "0.6");
         tri.setAttribute("transform", "translate(0 10) scale(0.9)");
         g.appendChild(tri);
-        // Small exclamation inside triangle
-        const excl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        const excl = document.createElementNS("http:
         excl.setAttribute("x", "0");
         excl.setAttribute("y", "8");
         excl.setAttribute("text-anchor", "middle");
@@ -420,7 +405,7 @@ function render(session) {
         dialSvg.appendChild(g);
       }
     }
-    const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const center = document.createElementNS("http:
     center.setAttribute("cx", "50");
     center.setAttribute("cy", "50");
     center.setAttribute("r", "8.5");
@@ -569,7 +554,6 @@ function render(session) {
     }
   }
 
-  // Hints
   const hintsEl = document.getElementById("hints-pool");
   if (hintsEl) {
     hintsEl.innerHTML = "";
@@ -636,7 +620,6 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   if (!session || !session.public.players) return;
   let playerIds = Object.keys(session.public.players);
   if (playerIds.length < 2) return;
-  // Captain gets all remainder — reorder so captain is first
   const captainId = session.public.captainId || playerIds[0];
   if (captainId && playerIds.includes(captainId)) {
     playerIds = [captainId, ...playerIds.filter((id) => id !== captainId)];

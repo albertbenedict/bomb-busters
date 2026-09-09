@@ -119,7 +119,6 @@ input::placeholder { color: var(--text-muted); opacity: 0.9; }
 input:focus { border-color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 12%, transparent); }
 [data-theme="dark"] input:focus { box-shadow: 0 0 0 3px rgba(245,245,245,0.12); }
 
-/* clean number inputs */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
@@ -145,7 +144,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   font-weight: 600;
 }
 
-/* Lobby – polished only, does not affect table/player card defaults much */
 .lobby {
   max-width: 560px;
   padding-top: 2.25rem;
@@ -362,7 +360,6 @@ li:last-child { border-bottom: none; }
 .center { text-align: center; }
 .hidden { display: none !important; }
 
-/* Table + player screen additions */
 .badge--danger {
   background: var(--danger);
   color: var(--bg);
@@ -400,7 +397,6 @@ li:last-child { border-bottom: none; }
 
 #turn-indicator.badge { display: inline-block; }
 
-/* Yellow/red wire types — game content, not chrome, so a second accent is fine here */
 :root { --yellow: #b8860b; }
 [data-theme="dark"] { --yellow: #e8c34a; }
 
@@ -421,7 +417,6 @@ li:last-child { border-bottom: none; }
 }
 .btn-reveal:hover:not(:disabled) { opacity: 0.88; }
 
-/* Room code — share moment */
 .room-share .room-code {
   font-size: 2.6rem;
   letter-spacing: 0.18em;
@@ -449,7 +444,6 @@ li:last-child { border-bottom: none; }
   border-color: var(--text);
 }
 
-/* Stat row — compact 3-up */
 .card--compact { padding: 0.9rem 1.1rem; }
 .stat-row {
   display: grid;
@@ -483,7 +477,6 @@ li:last-child { border-bottom: none; }
   .stat-value { font-size: 1.15rem; }
 }
 
-/* Detonator — tick/dot meter */
 .detonator-meter {
   display: flex;
   gap: 6px;
@@ -532,7 +525,6 @@ li:last-child { border-bottom: none; }
 .detonator-bar__fill.warn { background: var(--danger); }
 .detonator-bar__fill.critical { background: var(--danger); box-shadow: 0 0 8px color-mix(in srgb, var(--danger) 35%, transparent); }
 
-/* Team — active row stronger */
 .player-row--active {
   background: var(--surface);
   border: 1.5px solid var(--text);
@@ -558,7 +550,6 @@ li:last-child { border-bottom: none; }
   border-color: #3a3a3a;
 }
 
-/* Host controls — de-emphasized */
 .host-controls {
   display: flex;
   gap: 0.5rem;
@@ -587,7 +578,6 @@ li:last-child { border-bottom: none; }
   background: var(--bg);
 }
 
-/* Player — physical tiles */
 .hand--tiles {
   display: flex;
   flex-wrap: wrap;
@@ -648,7 +638,6 @@ li:last-child { border-bottom: none; }
   100% { transform: rotate(-6deg) scale(0.96); opacity: 0.38; }
 }
 
-/* Player — teammate rack */
 .targets { display: flex; flex-direction: column; gap: 0.75rem; }
 .player-group {
   border-width: 1.5px;
@@ -710,7 +699,6 @@ li:last-child { border-bottom: none; }
   outline-offset: 1px;
 }
 
-/* Turn banner — prominent */
 .turn-banner {
   border: var(--border-w) solid var(--border);
   border-radius: var(--radius-card);
@@ -753,7 +741,6 @@ li:last-child { border-bottom: none; }
   color: var(--text);
 }
 
-/* Value grid — yellow separation */
 .value-grid__divider {
   display: flex;
   align-items: center;
@@ -789,7 +776,6 @@ li:last-child { border-bottom: none; }
   background: color-mix(in srgb, var(--yellow) 10%, var(--bg));
 }
 
-/* Guess result — Correct!/Wrong! */
 .guess-result {
   border: var(--border-w) solid var(--border);
   border-radius: var(--radius-card);
@@ -831,7 +817,6 @@ li:last-child { border-bottom: none; }
 }
 .pos-cut { text-decoration: line-through; }
 
-/* Equipment — chips row on table, free-use buttons on player */
 .equipment-pool {
   display: flex;
   flex-wrap: wrap;
@@ -899,7 +884,6 @@ li:last-child { border-bottom: none; }
   cursor: not-allowed;
 }
 
-/* Hints — factual blue, strict order, still guessable */
 .hints-pool, .hints-list {
   display: flex;
   flex-wrap: wrap;
@@ -960,7 +944,7 @@ li:last-child { border-bottom: none; }
   0%,100% { box-shadow: 0 2px 0 var(--border-soft), 0 4px 12px rgba(0,0,0,0.06); }
   50% { box-shadow: 0 2px 0 var(--border), 0 6px 16px rgba(0,0,0,0.12); }
 }
-/* Wire Tracker — dots only */
+
 .wire-tracker {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
