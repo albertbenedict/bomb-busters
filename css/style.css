@@ -1310,4 +1310,5 @@ li:last-child { border-bottom: none; }
 @media (max-width: 520px) {
   .board-top { grid-template-columns: 1fr; grid-template-areas: "code" "equip" "detonator"; }
   .board-bottom { grid-template-columns: 1fr; }
+  .player-tray { flex-wrap: wrap; overflow: visible; }
 }

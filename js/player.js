@@ -11,6 +11,7 @@ const playerId = params.get("player");
 let session = null;
 let activeGuess = null;
 
+let disconnectRef = null;
 if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
   const el = document.getElementById("turn-indicator");
   if (el) {
@@ -21,7 +22,8 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
 } else {
   try {
     update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: true });
-    onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`)).set(false);
+    disconnectRef = onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`));
+    disconnectRef.set(false);
     try { localStorage.setItem(`bb-player-${code}`, playerId); } catch {}
   } catch (e) { console.warn("presence failed", e); }
 
@@ -50,7 +52,13 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
   });
 
   window.addEventListener("beforeunload", () => {
-    try { update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: false }); } catch {}
+    try {
+      if (disconnectRef) disconnectRef.cancel();
+      update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: false });
+    } catch {}
+  });
+  window.addEventListener("pagehide", () => {
+    try { if (disconnectRef) disconnectRef.cancel(); } catch {}
   });
 }
 
