@@ -1208,6 +1208,10 @@ li:last-child { border-bottom: none; }
   border-color: var(--danger);
   color: var(--danger);
 }
+.hint-house--blue { background: #d6eaf8; color: #2e86de; }
+.hint-house--yellow { background: #fef9e7; color: var(--yellow); }
+.wire--color-hintable { outline: 2px solid #2e86de; outline-offset: 2px; cursor: pointer; animation: hintPulse 1.2s ease-in-out infinite; }
+.wire--color-hintable.wire--yellow { outline-color: var(--yellow); }
 .hint-row-below { display: flex; gap: 6px; padding: 0 0.45rem; margin-top: 8px; align-items: flex-start; min-height: 32px; }
 .hint-cell { width: 36px; display: flex; justify-content: center; flex-shrink: 0; }
 .wire-tile--pending { outline: 2px solid var(--text); outline-offset: 2px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 18%, transparent), 0 4px 14px rgba(0,0,0,0.12); animation: pendingPulse 1.1s ease-in-out infinite; position: relative; }

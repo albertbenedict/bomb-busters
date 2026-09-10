@@ -226,6 +226,7 @@ function render(session) {
       wrap.appendChild(tile);
       tray.appendChild(wrap);
     }
+    const colorHints = session.public.colorHints || {};
     const hintRow = document.createElement("div");
     hintRow.className = "hint-row-below";
     for (let pos = 0; pos < p.wireCount; pos++) {
@@ -236,15 +237,21 @@ function render(session) {
       if (!isCut) {
         const myHint = hints[id];
         const wrong = Object.values(infoTokens).find((t) => t.ownerId === id && t.position === pos);
+        const colHint = Object.values(colorHints).find((t) => t.ownerId === id && t.position === pos);
         let houseVal = null;
         let houseKind = null;
-        if (myHint && myHint.position === pos) { houseVal = myHint.value; houseKind = "is"; }
+        if (colHint) { houseVal = colHint.type === "yellow" ? "Y" : colHint.type === "blue" ? "B" : colHint.value; houseKind = colHint.type === "yellow" ? "yellowHint" : colHint.type === "blue" ? "blueHint" : "is"; }
+        else if (myHint && myHint.position === pos) { houseVal = myHint.value; houseKind = "is"; }
         else if (wrong) { houseVal = wrong.type === "red" ? "R" : wrong.type === "yellow" ? "Y" : (wrong.value ?? wrong.guessKey); houseKind = "was"; }
         if (houseVal !== null) {
           const house = document.createElement("div");
-          house.className = `hint-house ${houseKind === "was" ? "hint-house--was" : ""}`;
+          let cls = "hint-house";
+          if (houseKind === "was") cls += " hint-house--was";
+          else if (houseKind === "blueHint") cls += " hint-house--blue";
+          else if (houseKind === "yellowHint") cls += " hint-house--yellow";
+          house.className = cls;
           house.textContent = String(houseVal);
-          house.title = houseKind === "is" ? `Hint: ${pos + 1} is ${houseVal}` : `Was ${houseVal}`;
+          house.title = houseKind === "blueHint" ? `Blue hint: ${pos + 1} is blue` : houseKind === "yellowHint" ? `Yellow hint: ${pos + 1} is yellow` : houseKind === "is" ? `Hint: ${pos + 1} is ${houseVal}` : `Was ${houseVal}`;
           cell.appendChild(house);
         }
       }
@@ -545,10 +552,12 @@ function render(session) {
         const [, e] = entry;
         const cnt = cutCountForKey(cutLog, e.unlockValue);
         const isUsed = !!e.used;
-        const isUnlocked = !isUsed && cnt >= 2;
+        const isUnlocked = !isUsed && cnt >= 4;
+        const typeMap = { skip: "Skip", defuse: "Defuse", blueHint: "Blue Hint", yellowHint: "Yellow Hint" };
+        const typeLabel = typeMap[e.type] || "Defuse";
         chip.className = "eq-chip eq-chip--vertical" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
         chip.textContent = isUsed ? `Used · ${e.unlockValue}s` : isUnlocked ? `Ready · ${e.unlockValue}s` : `Locked · ${e.unlockValue}s`;
-        chip.title = isUsed ? `Used (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked — defuse one mistake` : `Needs 2 cuts of ${e.unlockValue}s (${cnt}/2)`;
+        chip.title = isUsed ? `Used ${typeLabel} (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked — ${typeLabel}${e.type==="skip"?" skip turn":e.type==="blueHint"?" reveal blue":e.type==="yellowHint"?" reveal yellow":" defuse one mistake"}` : `Needs 4 cuts of ${e.unlockValue}s (${cnt}/4) — ${typeLabel}`;
       }
       eqEl.appendChild(chip);
     }

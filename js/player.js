@@ -10,6 +10,7 @@ const playerId = params.get("player");
 
 let session = null;
 let activeGuess = null;
+let colorHintMode = null;
 
 let disconnectRef = null;
 if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
@@ -93,15 +94,41 @@ function render() {
     if (!wasCut && nowCut) extra = " wire--cutting";
     else if (!hasRenderedHand) extra = " wire--enter";
     const hintable = isMyHintTurn && wire.type === "blue" && !wire.cut;
-    div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra + (hintable ? " wire--hintable" : "");
+    const colorHintable = colorHintMode && !wire.cut && (
+      (colorHintMode.type === "blueHint" && wire.type === "blue") ||
+      (colorHintMode.type === "yellowHint" && wire.type === "yellow")
+    );
+    div.className = `wire wire--${wire.type}` + (nowCut ? " cut" : "") + extra + (hintable ? " wire--hintable" : "") + (colorHintable ? " wire--color-hintable" : "");
     div.textContent = wireLabel(wire);
     if (hintable) {
       div.style.cursor = "pointer";
       div.title = `Hint: wire ${i + 1} is ${wire.value}`;
       div.addEventListener("click", () => submitHint(i));
+    } else if (colorHintable) {
+      div.style.cursor = "pointer";
+      div.title = `Use ${colorHintMode.type === "blueHint" ? "Blue" : "Yellow"} Hint on wire ${i + 1}`;
+      div.addEventListener("click", () => submitColorHint(i));
     }
     handEl.appendChild(div);
   });
+  if (colorHintMode) {
+    const hintBar = document.createElement("div");
+    hintBar.className = "muted";
+    hintBar.style.fontSize = "0.85rem";
+    hintBar.style.marginTop = "0.5rem";
+    hintBar.style.display = "flex";
+    hintBar.style.gap = "0.5rem";
+    hintBar.style.alignItems = "center";
+    hintBar.textContent = `Pick one of your ${colorHintMode.type === "blueHint" ? "blue" : "yellow"} wires to reveal`;
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.className = "btn-ghost";
+    cancelBtn.style.padding = "0.3rem 0.6rem";
+    cancelBtn.style.fontSize = "0.8rem";
+    cancelBtn.onclick = () => { colorHintMode = null; render(); };
+    hintBar.appendChild(cancelBtn);
+    handEl.appendChild(hintBar);
+  }
   prevHandCut = myHand.map((w) => !!w.cut);
   if (myHand.length > 0) hasRenderedHand = true;
 
@@ -355,14 +382,33 @@ function renderEquipment(canAct) {
   if (!wrap || !session) return;
   wrap.innerHTML = "";
   const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
-  if (!usable.length || !canAct || session.status !== "in_progress") return;
-  const atZero = (session.public.detonator?.position || 0) <= 0;
+  if (!usable.length || session.status !== "in_progress") return;
+  if (!canAct && !colorHintMode) {
+    // still show hint equip even when not your turn? No
+    const hasHintEquip = usable.some((e) => e.type === "blueHint" || e.type === "yellowHint");
+    if (!hasHintEquip) return;
+  }
   usable.forEach((eq) => {
     const btn = document.createElement("button");
     btn.className = "btn-equipment";
-    btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Defuse one mistake`;
-    btn.disabled = atZero;
-    btn.title = atZero ? "Detonator already at 0" : `Unlocked after 2 cuts of ${eq.unlockValue}s — reduces detonator by 1`;
+    if (eq.type === "skip") {
+      btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Skip your turn`;
+      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — skip turn, pass to next player`;
+      btn.disabled = !canAct;
+    } else if (eq.type === "blueHint") {
+      btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Blue Hint`;
+      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — reveal one of your blue wires`;
+      btn.disabled = !canAct;
+    } else if (eq.type === "yellowHint") {
+      btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Yellow Hint`;
+      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — reveal one of your yellow wires`;
+      btn.disabled = !canAct;
+    } else {
+      const atZero = (session.public.detonator?.position || 0) <= 0;
+      btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Defuse one mistake`;
+      btn.title = atZero ? "Detonator already at 0" : `Unlocked after 4 cuts of ${eq.unlockValue}s — reduces detonator by 1`;
+      btn.disabled = !canAct && eq.type === "defuse" ? atZero : !canAct;
+    }
     btn.addEventListener("click", () => useEquipment(eq.id));
     wrap.appendChild(btn);
   });
@@ -478,15 +524,52 @@ async function submitHint(position) {
 
 async function useEquipment(equipmentId) {
   if (!session || session.status !== "in_progress") return;
-  const pos = session.public.detonator?.position || 0;
-  if (pos <= 0) return;
-  const usableIds = new Set(getUsableEquipment(session.public.equipment, session.public.cutLog).map((e) => e.id));
-  if (!usableIds.has(equipmentId)) return;
+  const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
+  const eq = usable.find((e) => e.id === equipmentId);
+  if (!eq) return;
+  if (eq.type === "blueHint" || eq.type === "yellowHint") {
+    colorHintMode = { eqId: equipmentId, type: eq.type };
+    render();
+    return;
+  }
   const updates = {};
   updates[`public/equipment/${equipmentId}/used`] = true;
   updates[`public/equipment/${equipmentId}/unlocked`] = true;
-  updates["public/detonator/position"] = Math.max(0, pos - 1);
+  if (eq.type === "skip") {
+    updates.currentTurn = nextTurn();
+  } else {
+    const pos = session.public.detonator?.position || 0;
+    if (pos <= 0) return;
+    updates["public/detonator/position"] = Math.max(0, pos - 1);
+  }
   await update(ref(db, `sessions/${code}`), updates);
+  if (eq.type === "skip") checkWin();
+}
+
+async function submitColorHint(position) {
+  if (!colorHintMode) return;
+  const myHand = session.hands && session.hands[playerId];
+  const wire = myHand && myHand[position];
+  if (!wire || wire.cut) return;
+  if (colorHintMode.type === "blueHint" && wire.type !== "blue") return;
+  if (colorHintMode.type === "yellowHint" && wire.type !== "yellow") return;
+  const eqId = colorHintMode.eqId;
+  const stamp = Date.now();
+  const updates = {};
+  updates[`public/equipment/${eqId}/used`] = true;
+  updates[`public/equipment/${eqId}/unlocked`] = true;
+  updates[`public/colorHints/hint_${stamp}`] = {
+    ownerId: playerId,
+    position,
+    type: wire.type,
+    value: wire.value,
+    guessKey: wire.guessKey,
+    by: playerId,
+    at: stamp,
+  };
+  colorHintMode = null;
+  await update(ref(db, `sessions/${code}`), updates);
+  render();
 }
 
 let lastOutcomeAt = 0;

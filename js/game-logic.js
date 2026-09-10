@@ -142,7 +142,12 @@ export function generateEquipment(count, wireCount) {
   }
   values.forEach((val) => {
     const id = "eq_" + Math.random().toString(36).slice(2, 8);
-    equipment[id] = { unlockValue: val, unlocked: false, used: false };
+    const r = Math.random();
+    let type = "defuse";
+    if (r < 0.2) type = "blueHint";
+    else if (r < 0.4) type = "yellowHint";
+    else if (r < 0.6) type = "skip";
+    equipment[id] = { unlockValue: val, type, unlocked: false, used: false };
   });
   return equipment;
 }
@@ -150,7 +155,11 @@ export function generateEquipment(count, wireCount) {
 export function getUsableEquipment(equipment, cutLog) {
   const eq = equipment || {};
   return Object.entries(eq)
-    .filter(([, e]) => !e.used && cutCountForKey(cutLog, e.unlockValue) >= 2)
+    .filter(([, e]) => {
+      if (e.used) return false;
+      const total = 4;
+      return cutCountForKey(cutLog, e.unlockValue) >= total;
+    })
     .map(([id, e]) => ({ id, ...e }));
 }
 
