@@ -76,11 +76,18 @@
 
   const missionSelect = document.getElementById("mission-select");
   const missionDesc = document.getElementById("mission-desc");
+  const missionWires = document.createElement("div");
+  missionWires.id = "mission-wires";
+  missionWires.className = "muted";
+  missionWires.style.fontSize = "0.8rem";
+  missionWires.style.marginTop = "0.25rem";
+  missionDesc.parentNode.insertBefore(missionWires, missionDesc.nextSibling);
   const customFields = document.getElementById("custom-fields");
+  function wiresText(m) { return `${m.yellowCount} yellow, ${m.redCount} red, hints ${m.hintsEnabled ? "on" : "off"}`; }
   MISSIONS.forEach((m) => {
     const o = document.createElement("option");
     o.value = String(m.id);
-    o.textContent = `${m.name} — ${m.desc}`;
+    o.textContent = m.name;
     missionSelect.appendChild(o);
   });
   const customOpt = document.createElement("option");
@@ -89,13 +96,14 @@
   missionSelect.appendChild(customOpt);
   missionSelect.value = String(MISSIONS[0].id);
   missionDesc.textContent = MISSIONS[0].desc;
+  missionWires.textContent = `Wires: ${wiresText(MISSIONS[0])}`;
   missionSelect.addEventListener("change", () => {
     const isCustom = missionSelect.value === "custom";
     customFields.classList.toggle("hidden", !isCustom);
     if (!isCustom) {
       const m = MISSIONS.find((x) => String(x.id) === missionSelect.value);
-      if (m) missionDesc.textContent = m.desc;
-    } else missionDesc.textContent = "Custom — choose Yellow/Red and Hints below.";
+      if (m) { missionDesc.textContent = m.desc; missionWires.textContent = `Wires: ${wiresText(m)}`; }
+    } else { missionDesc.textContent = "Custom — choose Yellow/Red and Hints below."; missionWires.textContent = ""; }
   });
 
   const connDot = document.getElementById("conn-dot");
