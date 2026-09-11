@@ -384,7 +384,6 @@ function renderEquipment(canAct) {
   const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
   if (!usable.length || session.status !== "in_progress") return;
   if (!canAct && !colorHintMode) {
-    // still show hint equip even when not your turn? No
     const hasHintEquip = usable.some((e) => e.type === "blueHint" || e.type === "yellowHint");
     if (!hasHintEquip) return;
   }

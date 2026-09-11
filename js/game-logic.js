@@ -54,28 +54,49 @@ export function dealHands(deck, playerIds, captainId = null) {
 }
 
 export function getDetonatorMax(playerCount) {
-  const n = Math.max(1, Math.min(6, Math.round(Number(playerCount) || 4)));
-  return Math.max(1, Math.min(6, n));
+  return Math.max(1, Math.min(6, Math.round(Number(playerCount) || 4)));
 }
 
 export const MISSIONS = [
   {
     id: 1,
-    name: "First Yellow",
-    desc: "Blues 1–12, Yellows 2 (2.1, 7.1), Reds 0 — learn YELLOW as group & tracker.",
-    wireCount: 12,
+    name: "First Cut",
+    desc: "2 yellow, 1 red, hints on. The intro mission — just enough yellow to learn the group-guess, one red to respect.",
     yellowCount: 2,
-    redCount: 0,
-    detonatorMax: 4,
+    redCount: 1,
+    hintsEnabled: true,
   },
   {
     id: 2,
-    name: "Live Red",
-    desc: "Blues 1–12, Yellows 3 (1.1, 5.1, 9.1), Reds 1 (6.5) — red is instant loss if guessed, plus Y interleaving.",
-    wireCount: 12,
-    yellowCount: 3,
+    name: "Yellow Alert",
+    desc: "4 yellow, 1 red, hints on. More yellows in the line means more positions to track — deduction starts to matter.",
+    yellowCount: 4,
     redCount: 1,
-    detonatorMax: 4,
+    hintsEnabled: true,
+  },
+  {
+    id: 3,
+    name: "Wire and Fire",
+    desc: "4 yellow, 2 red, hints on. A second red wire in play — one wrong guess in the wrong place now ends it.",
+    yellowCount: 4,
+    redCount: 2,
+    hintsEnabled: true,
+  },
+  {
+    id: 4,
+    name: "Steady Hands",
+    desc: "6 yellow, 2 red, hints off. Maximum yellow, and the team's one free clue is gone — everything now comes from cuts and wrong-guess reveals.",
+    yellowCount: 6,
+    redCount: 2,
+    hintsEnabled: false,
+  },
+  {
+    id: 5,
+    name: "No Second Chances",
+    desc: "6 yellow, 3 red, hints off. The hardest config this system supports — max yellow, max red, no starting information at all.",
+    yellowCount: 6,
+    redCount: 3,
+    hintsEnabled: false,
   },
 ];
 

@@ -19,7 +19,12 @@
       <span class="badge">Table view</span>
     </div>
     <p class="muted">This device becomes the table — set it somewhere everyone can see it.</p>
-    <div class="settings-grid">
+    <label class="field" style="margin-bottom:0.85rem;">
+      <span class="field-label">Mission</span>
+      <select id="mission-select" aria-label="Mission" style="border: var(--border-w) solid var(--border); border-radius: var(--radius-pill); padding: 0.7rem 1rem; width: 100%; background: var(--bg); color: var(--text); font-weight: 700;"></select>
+      <span id="mission-desc" class="muted" style="font-size:0.8rem; margin-top:0.35rem; display:block;"></span>
+    </label>
+    <div id="custom-fields" class="settings-grid hidden">
       <label class="field">
         <span class="field-label">Yellow wires <span class="field-hint">2–6</span></span>
         <div class="number-field">
@@ -65,8 +70,33 @@
 
 <script type="module">
   import { createSession, joinSession, sessionExists } from "./js/session.js";
+  import { MISSIONS } from "./js/game-logic.js";
   import { db } from "./js/firebase-config.js";
   import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  const missionSelect = document.getElementById("mission-select");
+  const missionDesc = document.getElementById("mission-desc");
+  const customFields = document.getElementById("custom-fields");
+  MISSIONS.forEach((m) => {
+    const o = document.createElement("option");
+    o.value = String(m.id);
+    o.textContent = `${m.name} — ${m.desc}`;
+    missionSelect.appendChild(o);
+  });
+  const customOpt = document.createElement("option");
+  customOpt.value = "custom";
+  customOpt.textContent = "Custom — set Yellow/Red/Hints manually";
+  missionSelect.appendChild(customOpt);
+  missionSelect.value = String(MISSIONS[0].id);
+  missionDesc.textContent = MISSIONS[0].desc;
+  missionSelect.addEventListener("change", () => {
+    const isCustom = missionSelect.value === "custom";
+    customFields.classList.toggle("hidden", !isCustom);
+    if (!isCustom) {
+      const m = MISSIONS.find((x) => String(x.id) === missionSelect.value);
+      if (m) missionDesc.textContent = m.desc;
+    } else missionDesc.textContent = "Custom — choose Yellow/Red and Hints below.";
+  });
 
   const connDot = document.getElementById("conn-dot");
   const connText = document.getElementById("conn-text");
@@ -99,20 +129,28 @@
   });
 
   hostBtn.addEventListener("click", async () => {
-    const wireCount = Number(document.getElementById("wire-count")?.value) || 12;
-    const detonatorMax = Number(document.getElementById("detonator-max")?.value) || 4;
-    let yellowCount = Number(document.getElementById("yellow-count").value) || 4;
-    yellowCount = Math.max(2, Math.min(6, Math.round(yellowCount)));
-    if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1); // keep even 2..6
-    let redCount = Number(document.getElementById("red-count").value) || 2;
-    redCount = Math.max(1, Math.min(3, Math.round(redCount)));
-    const hintsEnabled = document.getElementById("hints-enabled")?.checked ?? true;
+    const wireCount = 12;
+    const detonatorMax = 4;
+    let yellowCount, redCount, hintsEnabled, missionId = null;
+    if (missionSelect.value !== "custom") {
+      const m = MISSIONS.find((x) => String(x.id) === missionSelect.value);
+      if (!m) { hostError.textContent = "⚠ Unknown mission"; hostError.classList.remove("hidden"); return; }
+      yellowCount = m.yellowCount; redCount = m.redCount; hintsEnabled = m.hintsEnabled; missionId = m.id;
+    } else {
+      yellowCount = Number(document.getElementById("yellow-count").value) || 4;
+      yellowCount = Math.max(2, Math.min(6, Math.round(yellowCount)));
+      if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1);
+      redCount = Number(document.getElementById("red-count").value) || 2;
+      redCount = Math.max(1, Math.min(3, Math.round(redCount)));
+      hintsEnabled = document.getElementById("hints-enabled")?.checked ?? true;
+      missionId = null;
+    }
     hostError.classList.add("hidden");
     hostError.textContent = "";
     hostBtn.disabled = true;
     hostBtn.textContent = "Creating…";
     try {
-      const code = await createSession({ wireCount, detonatorMax, yellowCount, redCount, hintsEnabled });
+      const code = await createSession({ wireCount, detonatorMax, yellowCount, redCount, hintsEnabled, missionId });
       if (!code) throw new Error("Empty code returned");
       location.href = `table.html?session=${code}`;
     } catch (err) {

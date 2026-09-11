@@ -3,7 +3,7 @@ import {
   ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
-import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax } from "./game-logic.js";
+import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax, MISSIONS } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -135,6 +135,22 @@ if (code) {
 let prevDetonatorPosition = null;
 
 function render(session) {
+  const missionId = session.config?.missionId;
+  const missionEl = document.getElementById("board-mission");
+  const missionBadge = document.getElementById("mission-badge");
+  const missionDescEl = document.getElementById("mission-desc");
+  if (missionEl && missionBadge && missionDescEl) {
+    if (missionId != null) {
+      const m = MISSIONS.find((x) => x.id === missionId);
+      if (m) { missionBadge.textContent = `M${m.id}`; missionDescEl.textContent = `${m.name} — ${m.desc}`; missionEl.classList.remove("hidden"); missionEl.removeAttribute("aria-hidden"); }
+      else { missionBadge.textContent = "M?"; missionDescEl.textContent = "Custom game"; missionEl.classList.remove("hidden"); }
+    } else {
+      missionBadge.textContent = "Custom";
+      missionDescEl.textContent = "Custom game";
+      missionEl.classList.remove("hidden");
+      missionEl.removeAttribute("aria-hidden");
+    }
+  }
   const players = session.public.players || {};
   const slots = document.querySelectorAll(".board-player-slot");
   const hiddenList = document.getElementById("players");

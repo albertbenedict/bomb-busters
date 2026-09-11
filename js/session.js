@@ -18,20 +18,21 @@ function generateCode(length = 4) {
   return code;
 }
 
-export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCount = 4, redCount = 2, hintsEnabled = true } = {}) {
+export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCount = 4, redCount = 2, hintsEnabled = true, missionId = null } = {}) {
   yellowCount = Math.max(2, Math.min(6, Math.round(Number(yellowCount) || 4)));
   if (yellowCount % 2 !== 0) yellowCount = Math.min(6, yellowCount + 1);
   redCount = Math.max(1, Math.min(3, Math.round(Number(redCount) || 2)));
   wireCount = Math.max(4, Math.min(12, Math.round(Number(wireCount) || 12)));
   detonatorMax = Math.max(1, Math.min(10, Math.round(Number(detonatorMax) || 4)));
   hintsEnabled = !!hintsEnabled;
+  missionId = missionId != null ? Number(missionId) : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     const existsSnap = await withTimeout(get(ref(db, `sessions/${code}/status`)), 8000, "Checking room code");
     if (existsSnap.exists()) continue;
     await withTimeout(set(ref(db, `sessions/${code}`), {
       status: "lobby",
-      config: { wireCount, detonatorMax, yellowCount, redCount, hintsEnabled },
+      config: { wireCount, detonatorMax, yellowCount, redCount, hintsEnabled, missionId },
       turnOrder: [],
       currentTurn: null,
       pendingGuess: null,
@@ -49,6 +50,13 @@ export async function createSession({ wireCount = 12, detonatorMax = 4, yellowCo
     return code;
   }
   throw new Error("Failed to generate unique room code – please retry");
+}
+
+function ensureCaptain(session, code) {
+  if (!session || session.public?.captainId) return;
+  const pids = Object.keys(session.public?.players || {});
+  if (!pids.length) return;
+  update(ref(db, `sessions/${code}/public`), { captainId: pids[0] }).catch(() => {});
 }
 
 export async function joinSession(code, playerName, storedId = null) {
@@ -119,7 +127,11 @@ export function watchSession(code, callback) {
     setTimeout(() => callback(null), 0);
     return () => {};
   }
-  return onValue(ref(db, `sessions/${code}`), (snapshot) => callback(snapshot.val()), (err) => {
+  return onValue(ref(db, `sessions/${code}`), (snapshot) => {
+    const val = snapshot.val();
+    if (val) ensureCaptain(val, code);
+    callback(val);
+  }, (err) => {
     console.error("watchSession error", code, err);
     callback(null);
   });
