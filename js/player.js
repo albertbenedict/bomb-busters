@@ -61,6 +61,17 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
   window.addEventListener("pagehide", () => {
     try { if (disconnectRef) disconnectRef.cancel(); } catch {}
   });
+  const leaveBtn = document.getElementById("leave-btn");
+  if (leaveBtn) {
+    leaveBtn.addEventListener("click", async () => {
+      try {
+        if (disconnectRef) disconnectRef.cancel();
+        await update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: false });
+      } catch {}
+      try { localStorage.removeItem(`bb-player-${code}`); } catch {}
+      location.href = "index.html";
+    });
+  }
 }
 
 function wireLabel(wire) {
@@ -598,13 +609,23 @@ function renderGuessResult() {
   }
 }
 
-function submitGuess(guessKey) {
+async function submitGuess(guessKey) {
   const { targetId, position } = activeGuess;
+  const snapshot = { ...activeGuess };
   activeGuess = null;
-  update(ref(db, `sessions/${code}`), {
-    pendingGuess: { by: playerId, target: targetId, position, guessKey, action: "duo" },
-    [`public/pendingSelections/${playerId}`]: null,
-  });
+  render();
+  try {
+    await update(ref(db, `sessions/${code}`), {
+      pendingGuess: { by: playerId, target: targetId, position, guessKey, action: "duo" },
+      [`public/pendingSelections/${playerId}`]: null,
+    });
+  } catch (e) {
+    console.error("submitGuess failed", e);
+    activeGuess = snapshot;
+    render();
+    const el = document.getElementById("guess-result");
+    if (el) { el.textContent = `⚠ Guess failed: ${e.message} — try again`; el.className = "guess-result guess-result--wrong"; el.classList.remove("hidden"); }
+  }
 }
 
 async function resolvePendingGuess(guess) {

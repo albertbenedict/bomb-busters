@@ -97,7 +97,7 @@ if (!code || code === "undefined" || code === "null" || code.trim() === "") {
   if (copyBtn) copyBtn.classList.add("hidden");
   showTableError(
     "No room code in URL.",
-    "Tap Host game on the lobby to create a room. If you opened table.html directly, go back. Tip: use the same http:
+    "Tap Host game on the lobby to create a room. If you opened table.html directly, go back. Tip: use the same http://<PC-IP>:3000 on all devices (npx serve -l tcp://0.0.0.0:3000 --cors) – don't mix localhost and IP, and don't open via file://."
   );
 } else {
   roomCodeEl.textContent = code;
@@ -358,7 +358,7 @@ function render(session) {
       const startDeg = (i * segAngle) - 90;
       const endDeg = ((i + 1) * segAngle) - 90;
       const path = segmentPath(50, 50, 48, startDeg, endDeg);
-      const seg = document.createElementNS("http:
+      const seg = document.createElementNS("http://www.w3.org/2000/svg", "path");
       seg.setAttribute("d", path);
       seg.setAttribute("fill", color);
       seg.setAttribute("stroke", "#0f1f1a");
@@ -375,8 +375,8 @@ function render(session) {
           const ang = midDeg + offsetAng;
           const r = 28 + offsetR;
           const pos = polar(50, 50, r, ang);
-          const g = document.createElementNS("http:
-          const pathEl = document.createElementNS("http:
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
           pathEl.setAttribute("d", CAT_HEAD_D);
           pathEl.setAttribute("fill", "#1a1a1a");
           pathEl.setAttribute("stroke", "#f5d76e");
@@ -389,7 +389,7 @@ function render(session) {
       } else if (i === 2) {
         const midDeg = (startDeg + endDeg) / 2;
         const pos = polar(50, 50, 28, midDeg);
-        const txt = document.createElementNS("http:
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
         txt.setAttribute("x", pos.x);
         txt.setAttribute("y", pos.y);
         txt.setAttribute("text-anchor", "middle");
@@ -401,23 +401,23 @@ function render(session) {
       } else if (i === 3) {
         const midDeg = (startDeg + endDeg) / 2;
         const pos = polar(50, 50, 28, midDeg);
-        const g = document.createElementNS("http:
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
         g.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
-        const arrow = document.createElementNS("http:
+        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
         arrow.setAttribute("d", "M -8 -4 L 6 -4 L 6 -7 L 12 0 L 6 7 L 6 4 L -8 4 Z");
         arrow.setAttribute("fill", "#aed6f1");
         arrow.setAttribute("stroke", "#1a1a1a");
         arrow.setAttribute("stroke-width", "0.6");
         arrow.setAttribute("transform", "scale(0.9)");
         g.appendChild(arrow);
-        const tri = document.createElementNS("http:
+        const tri = document.createElementNS("http://www.w3.org/2000/svg", "path");
         tri.setAttribute("d", "M -4 6 L 4 6 L 0 -6 Z");
         tri.setAttribute("fill", "#f9e79f");
         tri.setAttribute("stroke", "#1a1a1a");
         tri.setAttribute("stroke-width", "0.6");
         tri.setAttribute("transform", "translate(0 10) scale(0.9)");
         g.appendChild(tri);
-        const excl = document.createElementNS("http:
+        const excl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         excl.setAttribute("x", "0");
         excl.setAttribute("y", "8");
         excl.setAttribute("text-anchor", "middle");
@@ -428,7 +428,7 @@ function render(session) {
         dialSvg.appendChild(g);
       }
     }
-    const center = document.createElementNS("http:
+    const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     center.setAttribute("cx", "50");
     center.setAttribute("cy", "50");
     center.setAttribute("r", "8.5");
