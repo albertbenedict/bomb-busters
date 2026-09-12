@@ -288,6 +288,20 @@ function renderTargets(canAct) {
       hintRow.appendChild(chip);
       group.appendChild(hintRow);
     }
+    const colorHints = session.public.colorHints || {};
+    const colHints = Object.values(colorHints).filter((t) => t.ownerId === id);
+    if (colHints.length) {
+      const colRow = document.createElement("div");
+      colRow.className = "hint-row";
+      colHints.forEach((t) => {
+        const chip = document.createElement("span");
+        chip.className = t.type === "blue" ? "hint-chip" : "hint-chip hint-chip--yellow";
+        chip.textContent = `${t.position + 1} is ${t.type === "blue" ? "blue" : "yellow"}`;
+        chip.title = `${t.type} hint`;
+        colRow.appendChild(chip);
+      });
+      group.appendChild(colRow);
+    }
     const infoTokens = session.public.infoTokens || {};
     const wrongs = Object.values(infoTokens).filter((t) => t.ownerId === id);
     if (wrongs.length) {
@@ -431,6 +445,7 @@ function renderHints() {
   const hintsEnabled = session.config?.hintsEnabled ?? true;
   const hints = session.public.hints || {};
   const infoTokens = session.public.infoTokens || {};
+  const colorHints = session.public.colorHints || {};
   const players = session.public.players || {};
   if (!hintsEnabled) {
     list.innerHTML = `<span class="muted" style="font-size:0.82rem;">Hints disabled for this game.</span>`;
@@ -441,6 +456,14 @@ function renderHints() {
       const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
       chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${wasLabel}`;
       chip.title = `Wrong guess revealed`;
+      list.appendChild(chip);
+    });
+    Object.values(colorHints).forEach((t) => {
+      const owner = players[t.ownerId];
+      const chip = document.createElement("span");
+      chip.className = t.type === "blue" ? "hint-chip" : "hint-chip hint-chip--yellow";
+      chip.textContent = `${owner ? owner.name : "Wire"} ${t.position + 1} is ${t.type}`;
+      chip.title = `${t.type} hint`;
       list.appendChild(chip);
     });
     return;
@@ -469,6 +492,14 @@ function renderHints() {
     const wasLabel = tok.type === "red" ? "RED" : tok.type === "yellow" ? "YELLOW" : (tok.value ?? tok.guessKey ?? "—");
     chip.textContent = `${owner ? owner.name : "Wire"} ${tok.position + 1} was ${wasLabel}`;
     chip.title = `Wrong guess revealed`;
+    list.appendChild(chip);
+  });
+  Object.values(colorHints).forEach((t) => {
+    const owner = players[t.ownerId];
+    const chip = document.createElement("span");
+    chip.className = t.type === "blue" ? "hint-chip" : "hint-chip hint-chip--yellow";
+    chip.textContent = `${owner ? owner.name : "Wire"} ${t.position + 1} is ${t.type}`;
+    chip.title = `${t.type} hint`;
     list.appendChild(chip);
   });
   if (!Object.keys(hints).length && !Object.keys(infoTokens).length) {
