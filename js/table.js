@@ -157,7 +157,7 @@ function render(session) {
   if (missionEl && missionBadge && missionDescEl) {
     if (missionId != null) {
       const m = MISSIONS.find((x) => x.id === missionId);
-      if (m) { missionBadge.textContent = `M${m.id}`; missionDescEl.textContent = `${m.name} — ${m.desc}`; missionEl.classList.remove("hidden"); missionEl.removeAttribute("aria-hidden"); }
+      if (m) { missionBadge.textContent = `M${m.id}`; missionDescEl.textContent = m.longDesc || `${m.name} — ${m.desc}`; missionEl.classList.remove("hidden"); missionEl.removeAttribute("aria-hidden"); }
       else { missionBadge.textContent = "M?"; missionDescEl.textContent = "Custom game"; missionEl.classList.remove("hidden"); }
     } else {
       missionBadge.textContent = "Custom";
