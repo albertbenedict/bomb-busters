@@ -804,19 +804,10 @@ function toggleWinOverlay(session) {
     overlay.className = "win-overlay" + (isLost ? " win-overlay--loss" : "");
     const confetti = document.createElement("div");
     confetti.className = "win-overlay__confetti";
-    const emojis = isLost ? ["💥","💣","🔥"] : ["🎉","✨","🎊","⭐","🎈"];
-    for (let i = 0; i < 28; i++) {
-      const s = document.createElement("span");
-      s.textContent = emojis[i % emojis.length];
-      s.style.left = Math.random() * 100 + "%";
-      s.style.animationDuration = (2.2 + Math.random() * 2.2) + "s";
-      s.style.animationDelay = Math.random() * 1.2 + "s";
-      confetti.appendChild(s);
-    }
     overlay.appendChild(confetti);
     const stars = document.createElement("div");
     stars.className = "win-overlay__stars";
-    stars.textContent = isLost ? "💥 💣 💥" : "✨ 🎉 ✨";
+    stars.textContent = "";
     overlay.appendChild(stars);
     const title = document.createElement("div");
     title.className = "win-overlay__title";
