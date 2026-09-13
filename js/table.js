@@ -484,7 +484,8 @@ function render(session) {
     trackerEl.innerHTML = "";
     trackerEl.style.display = "flex";
     trackerEl.style.alignItems = "center";
-    trackerEl.style.gap = "0.2rem";
+    trackerEl.style.justifyContent = "center";
+    trackerEl.style.gap = "0.35rem";
     trackerEl.style.flexWrap = "nowrap";
     trackerEl.style.overflowX = "auto";
     const totals = getKeyTotals(session.config);
