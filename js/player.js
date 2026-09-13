@@ -58,9 +58,6 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
       update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: false });
     } catch {}
   });
-  window.addEventListener("pagehide", () => {
-    try { if (disconnectRef) disconnectRef.cancel(); } catch {}
-  });
   const leaveBtn = document.getElementById("leave-btn");
   if (leaveBtn) {
     leaveBtn.addEventListener("click", async () => {
@@ -209,20 +206,40 @@ function render() {
   renderGuessComposer(effectiveCanAct);
   renderHints();
   renderHintActions(isMyHintTurn);
+  const hintsCard = document.getElementById("hints-card");
+  if (hintsCard) {
+    const hasAnyHints = Object.keys(session.public.hints || {}).length > 0
+      || Object.keys(session.public.infoTokens || {}).length > 0
+      || Object.keys(session.public.colorHints || {}).length > 0;
+    const showHints = session.status === "in_progress" || session.status === "won" || session.status === "lost";
+    hintsCard.classList.toggle("hidden", !showHints && !hasAnyHints);
+    hintsCard.setAttribute("aria-hidden", String(!showHints && !hasAnyHints));
+  }
 
   const soloKeys = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
+  const soloContainer = document.getElementById("solo-container") || (() => {
+    const c = document.createElement("div");
+    c.id = "solo-container";
+    c.style.display = "flex";
+    c.style.flexWrap = "wrap";
+    c.style.gap = "0.4rem";
+    c.style.marginTop = "0.5rem";
+    document.getElementById("solo-btn")?.parentNode?.appendChild(c);
+    return c;
+  })();
+  soloContainer.innerHTML = "";
   const soloBtn = document.getElementById("solo-btn");
-  const showSolo = soloKeys.length > 0 && canAct;
-  soloBtn.classList.toggle("hidden", !showSolo);
-  if (showSolo) {
-    if (soloKeys.length === 1) {
-      const k = soloKeys[0];
-      soloBtn.textContent = k === "yellow" ? "Solo cut your yellows" : `Solo cut your ${k}s`;
-      soloBtn.onclick = () => performSoloCut(k);
-    } else {
-      soloBtn.textContent = `Solo cut: ${soloKeys.map((k) => k === "yellow" ? "Yellow" : k).join(", ")}`;
-      soloBtn.onclick = () => performSoloCut(soloKeys);
-    }
+  if (soloBtn) soloBtn.classList.add("hidden");
+  if (soloKeys.length > 0 && canAct) {
+    soloKeys.forEach((k) => {
+      const btn = document.createElement("button");
+      btn.className = "btn-primary";
+      btn.style.padding = "0.5rem 0.85rem";
+      btn.style.fontSize = "0.88rem";
+      btn.textContent = k === "yellow" ? "Solo cut yellows" : `Solo cut ${k}s`;
+      btn.onclick = () => performSoloCut(k);
+      soloContainer.appendChild(btn);
+    });
   }
 
   const canReveal = canRevealRedWires(myHand);
@@ -346,9 +363,9 @@ function renderTargets(canAct) {
   });
 }
 
-function renderGuessComposer() {
+function renderGuessComposer(canAct) {
   const composer = document.getElementById("guess-composer");
-  if (!activeGuess) {
+  if (!activeGuess || !canAct) {
     composer.classList.add("hidden");
     return;
   }
@@ -727,22 +744,21 @@ async function reactToOutcome(outcome) {
   checkWin();
 }
 
-async function performSoloCut(guessKeyOrKeys) {
-  const keys = Array.isArray(guessKeyOrKeys) ? guessKeyOrKeys : [guessKeyOrKeys];
+async function performSoloCut(guessKey) {
   const myHand = session.hands[playerId];
   const stamp = Date.now();
   const updates = {};
 
   myHand.forEach((wire, i) => {
-    if (keys.some((k) => String(wire.guessKey) === String(k)) && !wire.cut) {
+    if (String(wire.guessKey) === String(guessKey) && !wire.cut) {
       updates[`hands/${playerId}/${i}/cut`] = true;
       updates[`public/cutLog/log_${stamp}_${i}`] = {
-        ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey: wire.guessKey,
+        ownerId: playerId, position: i, type: wire.type, value: wire.value ?? wire.guessKey, guessKey,
         guessedBy: playerId, result: "cut", action: "solo",
       };
     }
   });
-  keys.forEach((k) => { updates[`public/validationTokens/${k}`] = true; });
+  updates[`public/validationTokens/${guessKey}`] = true;
   updates.currentTurn = nextTurn();
 
   await update(ref(db, `sessions/${code}`), updates);
@@ -777,7 +793,7 @@ function nextTurn() {
   for (let step = 1; step <= order.length; step++) {
     const nextId = order[(startIdx + step) % order.length];
     const hand = session.hands && session.hands[nextId];
-    if (!hand || !isHandFullyCut(hand)) return nextId;
+    if (hand && !isHandFullyCut(hand)) return nextId;
   }
   return order[(startIdx + 1) % order.length];
 }

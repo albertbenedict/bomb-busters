@@ -730,7 +730,7 @@ async function kickPlayer(playerId, name) {
       let next = order[0];
       for (const id of order) {
         const hand = session.hands && session.hands[id];
-        if (!hand || hand.every((w) => w.cut) === false) { next = id; break; }
+        if (hand && hand.some((w) => !w.cut)) { next = id; break; }
       }
       updates["currentTurn"] = next;
     }
