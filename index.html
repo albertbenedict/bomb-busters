@@ -198,6 +198,12 @@
       } catch {}
     }
   });
+  const qp = new URLSearchParams(location.search);
+  const joinParam = (qp.get("join") || qp.get("code") || "").trim().toUpperCase();
+  if (joinParam) {
+    joinCodeInput.value = joinParam;
+    joinCodeInput.dispatchEvent(new Event("input"));
+  }
   try {
     const lastName = localStorage.getItem("bb-last-name");
     if (lastName && !joinNameInput.value) joinNameInput.value = lastName;

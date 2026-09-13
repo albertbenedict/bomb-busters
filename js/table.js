@@ -74,6 +74,7 @@ function showTableError(message, hint) {
 }
 
 const copyBtn = document.getElementById("copy-code-btn");
+const shareBtn = document.getElementById("share-link-btn");
 if (copyBtn) {
   copyBtn.addEventListener("click", async () => {
     const text = roomCodeEl.textContent?.trim();
@@ -88,6 +89,20 @@ if (copyBtn) {
       const range = document.createRange();
       range.selectNodeContents(roomCodeEl);
       sel.removeAllRanges(); sel.addRange(range);
+    }
+  });
+}
+if (shareBtn) {
+  shareBtn.addEventListener("click", async () => {
+    const c = roomCodeEl.textContent?.trim();
+    if (!c || c === "—" || c === "----") return;
+    const url = `${location.origin}${location.pathname.replace(/table\.html$/, "index.html")}?join=${c}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      shareBtn.textContent = "✓ Link copied";
+      setTimeout(() => { shareBtn.textContent = "↗ Share"; }, 1600);
+    } catch {
+      prompt("Copy join link:", url);
     }
   });
 }
