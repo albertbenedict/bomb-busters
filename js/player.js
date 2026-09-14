@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint } from "./game-logic.js";
+import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -382,8 +382,7 @@ function renderGuessComposer(canAct) {
 
   const optionsEl = document.getElementById("guess-options");
   optionsEl.innerHTML = "";
-  const wireCount = session.config.wireCount;
-  for (let value = 1; value <= wireCount; value++) {
+  for (const value of WIRE_VALUES) {
     const have = haveKeys.has(String(value));
     const btn = document.createElement("button");
     btn.textContent = value;
@@ -564,7 +563,7 @@ async function submitHint(position) {
   if (hints[playerId]) return;
   if (hintOrder[hintIndex] !== playerId) return;
   const myHand = session.hands && session.hands[playerId];
-  if (!isBlueHintValid(myHand, position, session.config?.wireCount)) {
+  if (!isBlueHintValid(myHand, position)) {
     alert("Hint must be a blue wire — yellow and red cannot be hinted. Pick another blue wire.");
     return;
   }

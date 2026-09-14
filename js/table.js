@@ -3,7 +3,7 @@ import {
   ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
-import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax, MISSIONS } from "./game-logic.js";
+import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax, MISSIONS, WIRE_VALUES } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -397,7 +397,7 @@ function render(session) {
     const totals = getKeyTotals(session.config);
     const rawCutLog = session.public.cutLog || {};
     const rawInfoTokens = session.public.infoTokens || {};
-    const max = session.config.wireCount || 12;
+    const max = WIRE_VALUES.length;
     const isCutYellow = (val) => Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val && c.result === "cut");
     const isCutRed = (val) => Object.values(rawCutLog).some((c) => c.type === "red" && c.value === val && c.result === "cut");
     const hasYellow = (val) => Object.values(rawCutLog).some((c) => c.type === "yellow" && c.value === val) || Object.values(rawInfoTokens).some((t) => t.type === "yellow" && t.value === val);
@@ -574,7 +574,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   const detonatorMax = getDetonatorMax(playerIds.length);
   const deck = buildDeck(session.config);
   const hands = dealHands(deck, playerIds, captainId);
-  const equipment = generateEquipment(playerIds.length, session.config.wireCount);
+  const equipment = generateEquipment(playerIds.length);
   const hintsEnabled = session.config?.hintsEnabled ?? true;
 
   const updates = {

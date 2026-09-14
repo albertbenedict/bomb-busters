@@ -8,10 +8,11 @@ function shuffle(arr) {
   return a;
 }
 
-export function buildDeck({ wireCount = 12, yellowCount = 4, redCount = 2 } = {}) {
+export const WIRE_VALUES = Array.from({ length: 12 }, (_, i) => i + 1);
+
+export function buildDeck({ yellowCount = 4, redCount = 2 } = {}) {
   const deck = [];
-  const wc = 12; // locked to 12 for now
-  for (let value = 1; value <= wc; value++) {
+  for (const value of WIRE_VALUES) {
     for (let copy = 0; copy < 4; copy++) {
       deck.push({ type: "blue", value, guessKey: value });
     }
@@ -111,9 +112,8 @@ export function cutCountForKey(cutLog, key) {
 
 export function getKeyTotals(config) {
   const totals = {};
-  const wireCount = Math.max(1, Math.min(12, Number(config?.wireCount) || 12));
   const yellowCount = Math.max(0, Math.min(6, Number(config?.yellowCount) || 0));
-  for (let v = 1; v <= wireCount; v++) totals[v] = 4;
+  for (const v of WIRE_VALUES) totals[v] = 4;
   if (yellowCount > 0) totals.yellow = yellowCount;
   return totals;
 }
@@ -152,19 +152,11 @@ export function isHandFullyCut(hand) {
   return hand.every((wire) => wire.cut);
 }
 
-export function generateEquipment(count, wireCount) {
+export function generateEquipment(count) {
   const n = Math.max(0, Math.min(5, Math.round(Number(count) || 0)));
-  const w = Math.max(1, Math.min(12, Math.round(Number(wireCount) || 12)));
   const equipment = {};
   if (n === 0) return equipment;
-  let values = [];
-  if (w >= n) {
-    const pool = [];
-    for (let v = 1; v <= w; v++) pool.push(v);
-    values = shuffle(pool).slice(0, n);
-  } else {
-    for (let i = 0; i < n; i++) values.push(1 + Math.floor(Math.random() * w));
-  }
+  const values = shuffle([...WIRE_VALUES]).slice(0, n);
   values.forEach((val) => {
     const id = "eq_" + Math.random().toString(36).slice(2, 8);
     const r = Math.random();
@@ -188,13 +180,12 @@ export function getUsableEquipment(equipment, cutLog) {
     .map(([id, e]) => ({ id, ...e }));
 }
 
-export function isBlueHintValid(hand, position, wireCount) {
+export function isBlueHintValid(hand, position) {
   if (!hand || position == null || position < 0 || position >= hand.length) return false;
   const w = hand[position];
   if (!w || w.cut) return false;
   if (w.type !== "blue") return false;
-  const wc = Math.max(1, Math.min(12, Number(wireCount) || 12));
-  if (typeof w.value !== "number" || w.value < 1 || w.value > wc) return false;
+  if (typeof w.value !== "number" || !WIRE_VALUES.includes(w.value)) return false;
   return true;
 }
 

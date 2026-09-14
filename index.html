@@ -139,7 +139,6 @@
   });
 
   hostBtn.addEventListener("click", async () => {
-    const wireCount = 12;
     const detonatorMax = 4;
     let yellowCount, redCount, hintsEnabled, missionId = null;
     if (missionSelect.value !== "custom") {
@@ -160,7 +159,7 @@
     hostBtn.disabled = true;
     hostBtn.textContent = "Creating…";
     try {
-      const code = await createSession({ wireCount, detonatorMax, yellowCount, redCount, hintsEnabled, missionId });
+      const code = await createSession({ detonatorMax, yellowCount, redCount, hintsEnabled, missionId });
       if (!code) throw new Error("Empty code returned");
       location.href = `table.html?session=${code}`;
     } catch (err) {
