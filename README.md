@@ -30,10 +30,6 @@ The game uses a **shared table + private player devices** approach:
 
 This preserves the hidden-information aspect of the physical game while allowing players to play together online.
 
-## Screenshots
-
-*Add screenshots or a short gameplay GIF here.*
-
 ## Play
 
 https://albertbenedict.github.io/bomb-busters/
