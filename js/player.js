@@ -147,6 +147,7 @@ function render() {
   }
 
   const canAct = !isHintPhase && session.currentTurn === playerId && session.status === "in_progress";
+  if (!canAct && colorHintMode) { colorHintMode = null; }
   const banner = document.getElementById("turn-banner");
   const bannerLabel = document.getElementById("turn-banner-label");
   const turnEl = document.getElementById("turn-indicator");
@@ -448,7 +449,7 @@ function renderEquipment(canAct) {
       const atZero = (session.public.detonator?.position || 0) <= 0;
       btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Defuse one mistake`;
       btn.title = atZero ? "Detonator already at 0" : `Unlocked after 4 cuts of ${eq.unlockValue}s — reduces detonator by 1`;
-      btn.disabled = !canAct && eq.type === "defuse" ? atZero : !canAct;
+      btn.disabled = !canAct || atZero;
     }
     btn.addEventListener("click", () => useEquipment(eq.id));
     wrap.appendChild(btn);
@@ -803,9 +804,10 @@ function nextTurn() {
 }
 
 async function checkWin() {
-  const allNonRedCut = Object.values(session.hands).every((hand) => hand.filter((w) => w.type !== "red").every((w) => w.cut));
-  const hasNonRed = Object.values(session.hands).some((hand) => hand.some((w) => w.type !== "red"));
+  const allNonRedCut = Object.values(session.hands).every((hand) => !hand || hand.filter((w) => w.type !== "red").every((w) => w.cut));
+  const hasNonRed = Object.values(session.hands).some((hand) => hand && hand.some((w) => w.type !== "red"));
   const allRedLast = Object.values(session.hands).every((hand) => {
+    if (!hand) return true;
     const remaining = hand.filter((w) => !w.cut);
     return remaining.length === 0 || remaining.every((w) => w.type === "red");
   });
