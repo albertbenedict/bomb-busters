@@ -10,7 +10,7 @@ function shuffle(arr) {
 
 export function buildDeck({ wireCount = 12, yellowCount = 4, redCount = 2 } = {}) {
   const deck = [];
-  const wc = 12;
+  const wc = 12; // locked to 12 for now
   for (let value = 1; value <= wc; value++) {
     for (let copy = 0; copy < 4; copy++) {
       deck.push({ type: "blue", value, guessKey: value });
@@ -97,7 +97,7 @@ export const MISSIONS = [
   {
     id: 5,
     name: "No Second Chances",
-    desc: "6 yellow, 3 red, hints off. The hardest config this system supports — max yellow, max red, no starting information at all.",
+    desc: "6 yellow, 3 red, hints off. The hardest config this system supports with max yellow, max red, and no starting information at all.",
     longDesc: "Maximum threat. Six yellows, three reds, and zero starting hints as every wire is a gamble. Solo-cut when you hold the last of a value, and use equipment hints to peel back a single wire’s colour before you guess. One mistake on red and it’s over — steady hands, clear calls.",
     yellowCount: 6,
     redCount: 3,
@@ -138,8 +138,7 @@ export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
     const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
     const total = totals[key] ?? 4;
     const remaining = total - cutCountForKey(cutLog, key);
-    const hasCut = cutCountForKey(cutLog, key) >= 1;
-    if (remaining === counts[rawKey] || hasCut) out.push(key);
+    if (remaining === counts[rawKey]) out.push(key);
   }
   return out;
 }

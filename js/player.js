@@ -700,12 +700,16 @@ async function resolvePendingGuess(guess) {
     action: "duo",
   };
 
-  let newDetonatorPos = session.public.detonator.position;
   const isRed = wire.type === "red";
   if (isRed) {
     updates.status = "lost";
     updates[`public/detonator/position`] = session.public.detonator.max;
-  } else if (correct) {
+    updates.lastOutcome = { by: guess.by, target: playerId, correct: false, guessKey: wire.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
+    await update(ref(db, `sessions/${code}`), updates);
+    return;
+  }
+  let newDetonatorPos = session.public.detonator.position;
+  if (correct) {
     updates[`hands/${playerId}/${guess.position}/cut`] = true;
   } else {
     updates[`public/infoTokens/info_${stamp}`] = {
@@ -716,11 +720,11 @@ async function resolvePendingGuess(guess) {
   }
 
   updates.lastOutcome = {
-    by: guess.by, target: playerId, correct: isRed ? false : correct, guessKey: wire.guessKey,
+    by: guess.by, target: playerId, correct, guessKey: wire.guessKey,
     position: guess.position, acknowledged: false, at: stamp, isRed,
   };
 
-  if (!isRed && newDetonatorPos >= session.public.detonator.max) {
+  if (newDetonatorPos >= session.public.detonator.max) {
     updates.status = "lost";
   }
 
