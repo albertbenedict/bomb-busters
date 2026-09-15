@@ -11,6 +11,8 @@ const playerId = params.get("player");
 let session = null;
 let activeGuess = null;
 let colorHintMode = null;
+let resolvingGuess = false;
+let reactingToOutcome = false;
 
 let disconnectRef = null;
 if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
@@ -677,18 +679,21 @@ async function submitGuess(guessKey) {
 }
 
 async function resolvePendingGuess(guess) {
-  const myHand = session.hands[playerId];
-  const wire = myHand[guess.position];
+  if (resolvingGuess) return;
+  resolvingGuess = true;
+  try {
+    const myHand = session.hands[playerId];
+    const wire = myHand[guess.position];
 
-  if (!wire || wire.cut) {
-    await update(ref(db, `sessions/${code}`), { pendingGuess: null });
-    return;
-  }
+    if (!wire || wire.cut) {
+      await update(ref(db, `sessions/${code}`), { pendingGuess: null });
+      return;
+    }
 
-  const correct = String(wire.guessKey) === String(guess.guessKey);
-  const stamp = Date.now();
+    const correct = String(wire.guessKey) === String(guess.guessKey);
+    const stamp = Date.now();
 
-  const updates = { pendingGuess: null, [`public/pendingSelections/${guess.by}`]: null };
+    const updates = { pendingGuess: null, [`public/pendingSelections/${guess.by}`]: null };
   updates[`public/cutLog/log_${stamp}`] = {
     ownerId: playerId,
     position: guess.position,
@@ -729,27 +734,42 @@ async function resolvePendingGuess(guess) {
   }
 
   await update(ref(db, `sessions/${code}`), updates);
+  } finally {
+    resolvingGuess = false;
+  }
 }
 
 async function reactToOutcome(outcome) {
-  const updates = { "lastOutcome/acknowledged": true };
+  if (reactingToOutcome) return;
+  reactingToOutcome = true;
+  try {
+    const updates = { "lastOutcome/acknowledged": true };
 
-  if (outcome.correct) {
-    const myHand = session.hands[playerId];
-    const idx = myHand.findIndex((w) => String(w.guessKey) === String(outcome.guessKey) && !w.cut);
-    if (idx > -1) updates[`hands/${playerId}/${idx}/cut`] = true;
+    if (outcome.correct) {
+      const myHand = session.hands[playerId];
+      const idx = outcome.position;
+      if (myHand?.[idx] && !myHand[idx].cut) {
+        updates[`hands/${playerId}/${idx}/cut`] = true;
+      }
+    }
+
+    if (session.status !== "lost") {
+      updates.currentTurn = nextTurn();
+    }
+
+    await update(ref(db, `sessions/${code}`), updates);
+    checkWin();
+  } finally {
+    reactingToOutcome = false;
   }
-
-  if (session.status !== "lost") {
-    updates.currentTurn = nextTurn();
-  }
-
-  await update(ref(db, `sessions/${code}`), updates);
-  checkWin();
 }
 
 async function performSoloCut(guessKey) {
-  const myHand = session.hands[playerId];
+  if (!session || session.status !== "in_progress") return;
+  if (session.currentTurn !== playerId) return;
+  const myHand = session.hands[playerId] || [];
+  const eligible = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
+  if (!eligible.some((k) => String(k) === String(guessKey))) return;
   const stamp = Date.now();
   const updates = {};
 
@@ -770,7 +790,10 @@ async function performSoloCut(guessKey) {
 }
 
 async function revealRedWires() {
-  const myHand = session.hands[playerId];
+  if (!session || session.status !== "in_progress") return;
+  if (session.currentTurn !== playerId) return;
+  const myHand = session.hands[playerId] || [];
+  if (!canRevealRedWires(myHand)) return;
   const stamp = Date.now();
   const updates = {};
 
