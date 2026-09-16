@@ -47,6 +47,9 @@ if (!code || !playerId || code === "undefined" || code === "null" || playerId ==
       try { update(ref(db, `sessions/${code}/public/players/${playerId}`), { connected: true }); } catch {}
     }
     render();
+    if (session.status === "in_progress" && isGameWon(session.hands)) {
+      update(ref(db, `sessions/${code}`), { status: "won" }).catch(() => {});
+    }
   }, (err) => {
     console.error("player onValue error", err);
     const el = document.getElementById("turn-indicator");
