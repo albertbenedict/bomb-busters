@@ -292,7 +292,7 @@ function renderTargets(canAct) {
     const meta = document.createElement("span");
     meta.className = "badge badge--muted";
     meta.style.fontSize = "0.62rem";
-    meta.textContent = `${p.wireCount} wires`;
+    meta.textContent = `${p.handSize} wires`;
     head.appendChild(meta);
     group.appendChild(head);
 
@@ -341,7 +341,7 @@ function renderTargets(canAct) {
     const rack = document.createElement("div");
     rack.className = "rack";
     const theirHand = session.hands && session.hands[id];
-    for (let pos = 0; pos < p.wireCount; pos++) {
+    for (let pos = 0; pos < p.handSize; pos++) {
       const alreadyCut = !!(theirHand && theirHand[pos] && theirHand[pos].cut);
       const btn = document.createElement("button");
       btn.className = "rack-wire" + (alreadyCut ? " rack-wire--cut" : "");
@@ -584,6 +584,7 @@ async function submitHint(position) {
 
 async function useEquipment(equipmentId) {
   if (!session || session.status !== "in_progress") return;
+  if (session.currentTurn !== playerId) return;
   const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
   const eq = usable.find((e) => e.id === equipmentId);
   if (!eq) return;
@@ -607,6 +608,8 @@ async function useEquipment(equipmentId) {
 }
 
 async function submitColorHint(position) {
+  if (!session || session.status !== "in_progress") return;
+  if (session.currentTurn !== playerId) return;
   if (!colorHintMode) return;
   const myHand = session.hands && session.hands[playerId];
   const wire = myHand && myHand[position];

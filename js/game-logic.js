@@ -28,30 +28,16 @@ export function buildDeck({ yellowCount = 4, redCount = 2 } = {}) {
   return shuffle(deck);
 }
 
-export function dealHands(deck, playerIds, captainId = null) {
+export function dealHands(deck, playerIds) {
   const hands = {};
-  const orderedIds = captainId && playerIds.includes(captainId)
-    ? [captainId, ...playerIds.filter((id) => id !== captainId)]
-    : [...playerIds];
-  orderedIds.forEach((id) => (hands[id] = []));
+  playerIds.forEach((id) => (hands[id] = []));
   deck.forEach((wire, i) => {
-    hands[orderedIds[i % orderedIds.length]].push({ ...wire, cut: false });
+    hands[playerIds[i % playerIds.length]].push({ ...wire, cut: false });
   });
-  const remainder = deck.length % orderedIds.length;
-  if (captainId && orderedIds.includes(captainId) && remainder > 0) {
-    const extraRecipients = orderedIds.slice(1, remainder);
-    extraRecipients.forEach((pid) => {
-      const wire = hands[pid].pop();
-      if (wire) hands[captainId].push(wire);
-    });
-  }
-  const result = {};
-  playerIds.forEach((id) => (result[id] = hands[id] || []));
-  if (captainId && !playerIds.includes(captainId)) result[captainId] = hands[captainId];
-  Object.keys(result).forEach((id) => {
-    result[id].sort((a, b) => (a.value || 0) - (b.value || 0));
+  Object.values(hands).forEach((hand) => {
+    hand.sort((a, b) => (a.value || 0) - (b.value || 0));
   });
-  return result;
+  return hands;
 }
 
 export function getDetonatorMax(playerCount) {

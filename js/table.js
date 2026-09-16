@@ -231,7 +231,7 @@ function render(session) {
     tray.className = "player-tray";
     const hand = hands[id] || [];
     const pendingSelections = session.public.pendingSelections || {};
-    for (let pos = 0; pos < p.wireCount; pos++) {
+    for (let pos = 0; pos < p.handSize; pos++) {
       const w = hand[pos];
       const isCut = !!(w && w.cut);
       const pending = Object.entries(pendingSelections).find(([gid, sel]) => sel && sel.targetId === id && sel.position === pos && session.currentTurn === gid && session.status === "in_progress");
@@ -260,7 +260,7 @@ function render(session) {
     const colorHints = session.public.colorHints || {};
     const hintRow = document.createElement("div");
     hintRow.className = "hint-row-below";
-    for (let pos = 0; pos < p.wireCount; pos++) {
+    for (let pos = 0; pos < p.handSize; pos++) {
       const w = hand[pos];
       const isCut = !!(w && w.cut);
       const cell = document.createElement("div");
@@ -288,7 +288,7 @@ function render(session) {
       }
       hintRow.appendChild(cell);
     }
-    if (p.wireCount === 0) {
+    if (p.handSize === 0) {
       const empty = document.createElement("div");
       empty.className = "muted";
       empty.style.fontSize = "0.82rem";
@@ -306,7 +306,7 @@ function render(session) {
     const meta = document.createElement("div");
     meta.className = "muted";
     meta.style.fontSize = "0.78rem";
-    meta.textContent = p.connected === false ? "Offline" : `${p.wireCount} wires`;
+    meta.textContent = p.connected === false ? "Offline" : `${p.handSize} wires`;
     foot.appendChild(meta);
     const kickBtn = document.createElement("button");
     kickBtn.textContent = "Kick";
@@ -573,7 +573,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
   }
   const detonatorMax = getDetonatorMax(playerIds.length);
   const deck = buildDeck(session.config);
-  const hands = dealHands(deck, playerIds, captainId);
+  const hands = dealHands(deck, playerIds);
   const equipment = generateEquipment(playerIds.length);
   const hintsEnabled = session.config?.hintsEnabled ?? true;
 
@@ -586,7 +586,7 @@ document.getElementById("start-btn").addEventListener("click", async () => {
     lastOutcome: null,
   };
   playerIds.forEach((id) => {
-    updates[`public/players/${id}/wireCount`] = hands[id].length;
+    updates[`public/players/${id}/handSize`] = hands[id].length;
     updates[`public/players/${id}/connected`] = true;
   });
   updates["public/cutLog"] = {};
@@ -673,7 +673,7 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
     "public/detonator/position": 0,
   };
   Object.keys(session.public.players || {}).forEach((id) => {
-    updates[`public/players/${id}/wireCount`] = 0;
+    updates[`public/players/${id}/handSize`] = 0;
     updates[`public/players/${id}/connected`] = true;
   });
   await update(ref(db, `sessions/${code}`), updates);

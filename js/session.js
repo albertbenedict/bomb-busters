@@ -106,7 +106,7 @@ export async function joinSession(code, playerName, storedId = null) {
   const playerId = "p_" + Math.random().toString(36).slice(2, 9);
   await withTimeout(set(ref(db, `sessions/${code}/public/players/${playerId}`), {
     name: nameTrim,
-    wireCount: 0,
+    handSize: 0,
     connected: true,
   }), 8000, "Joining room");
   try { onDisconnect(ref(db, `sessions/${code}/public/players/${playerId}/connected`)).set(false); } catch {}
