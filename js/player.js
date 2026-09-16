@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES } from "./game-logic.js";
+import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES, getNextTurn, isGameWon } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -13,6 +13,8 @@ let activeGuess = null;
 let colorHintMode = null;
 let resolvingGuess = false;
 let reactingToOutcome = false;
+let lastProcessedActionId = null;
+let processingAction = false;
 
 let disconnectRef = null;
 if (!code || !playerId || code === "undefined" || code === "null" || playerId === "undefined") {
@@ -583,6 +585,7 @@ async function submitHint(position) {
 }
 
 async function useEquipment(equipmentId) {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   const usable = getUsableEquipment(session.public.equipment, session.public.cutLog);
@@ -593,21 +596,27 @@ async function useEquipment(equipmentId) {
     render();
     return;
   }
-  const updates = {};
-  updates[`public/equipment/${equipmentId}/used`] = true;
-  updates[`public/equipment/${equipmentId}/unlocked`] = true;
-  if (eq.type === "skip") {
-    updates.currentTurn = nextTurn();
-  } else {
-    const pos = session.public.detonator?.position || 0;
-    if (pos <= 0) return;
-    updates["public/detonator/position"] = Math.max(0, pos - 1);
+  processingAction = true;
+  try {
+    const updates = {};
+    updates[`public/equipment/${equipmentId}/used`] = true;
+    updates[`public/equipment/${equipmentId}/unlocked`] = true;
+    if (eq.type === "skip") {
+      updates.currentTurn = nextTurn();
+    } else {
+      const pos = session.public.detonator?.position || 0;
+      if (pos <= 0) return;
+      updates["public/detonator/position"] = Math.max(0, pos - 1);
+    }
+    await update(ref(db, `sessions/${code}`), updates);
+    if (eq.type === "skip") checkWin();
+  } finally {
+    processingAction = false;
   }
-  await update(ref(db, `sessions/${code}`), updates);
-  if (eq.type === "skip") checkWin();
 }
 
 async function submitColorHint(position) {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   if (!colorHintMode) return;
@@ -616,23 +625,28 @@ async function submitColorHint(position) {
   if (!wire || wire.cut) return;
   if (colorHintMode.type === "blueHint" && wire.type !== "blue") return;
   if (colorHintMode.type === "yellowHint" && wire.type !== "yellow") return;
-  const eqId = colorHintMode.eqId;
-  const stamp = Date.now();
-  const updates = {};
-  updates[`public/equipment/${eqId}/used`] = true;
-  updates[`public/equipment/${eqId}/unlocked`] = true;
-  updates[`public/colorHints/hint_${stamp}`] = {
-    ownerId: playerId,
-    position,
-    type: wire.type,
-    value: wire.value,
-    guessKey: wire.guessKey,
-    by: playerId,
-    at: stamp,
-  };
-  colorHintMode = null;
-  await update(ref(db, `sessions/${code}`), updates);
-  render();
+  processingAction = true;
+  try {
+    const eqId = colorHintMode.eqId;
+    const stamp = Date.now();
+    const updates = {};
+    updates[`public/equipment/${eqId}/used`] = true;
+    updates[`public/equipment/${eqId}/unlocked`] = true;
+    updates[`public/colorHints/hint_${stamp}`] = {
+      ownerId: playerId,
+      position,
+      type: wire.type,
+      value: wire.value,
+      guessKey: wire.guessKey,
+      by: playerId,
+      at: stamp,
+    };
+    colorHintMode = null;
+    await update(ref(db, `sessions/${code}`), updates);
+    render();
+  } finally {
+    processingAction = false;
+  }
 }
 
 let lastOutcomeAt = 0;
@@ -665,11 +679,12 @@ function renderGuessResult() {
 async function submitGuess(guessKey) {
   const { targetId, position } = activeGuess;
   const snapshot = { ...activeGuess };
+  const actionId = crypto.randomUUID();
   activeGuess = null;
   render();
   try {
     await update(ref(db, `sessions/${code}`), {
-      pendingGuess: { by: playerId, target: targetId, position, guessKey, action: "duo" },
+      pendingGuess: { id: actionId, by: playerId, target: targetId, position, guessKey, action: "duo" },
       [`public/pendingSelections/${playerId}`]: null,
     });
   } catch (e) {
@@ -683,6 +698,7 @@ async function submitGuess(guessKey) {
 
 async function resolvePendingGuess(guess) {
   if (resolvingGuess) return;
+  if (guess.id && lastProcessedActionId === guess.id) return;
   resolvingGuess = true;
   try {
     const myHand = session.hands[playerId];
@@ -712,7 +728,8 @@ async function resolvePendingGuess(guess) {
   if (isRed) {
     updates.status = "lost";
     updates[`public/detonator/position`] = session.public.detonator.max;
-    updates.lastOutcome = { by: guess.by, target: playerId, correct: false, guessKey: wire.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
+    updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: wire.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
+    if (guess.id) lastProcessedActionId = guess.id;
     await update(ref(db, `sessions/${code}`), updates);
     return;
   }
@@ -728,10 +745,11 @@ async function resolvePendingGuess(guess) {
   }
 
   updates.lastOutcome = {
-    by: guess.by, target: playerId, correct, guessKey: wire.guessKey,
+    id: guess.id, by: guess.by, target: playerId, correct, guessKey: wire.guessKey,
     position: guess.position, acknowledged: false, at: stamp, isRed,
   };
 
+  if (guess.id) lastProcessedActionId = guess.id;
   if (newDetonatorPos >= session.public.detonator.max) {
     updates.status = "lost";
   }
@@ -744,8 +762,10 @@ async function resolvePendingGuess(guess) {
 
 async function reactToOutcome(outcome) {
   if (reactingToOutcome) return;
+  if (outcome.id && lastProcessedActionId === outcome.id) return;
   reactingToOutcome = true;
   try {
+    if (outcome.id) lastProcessedActionId = outcome.id;
     const updates = { "lastOutcome/acknowledged": true };
 
     if (outcome.correct) {
@@ -768,13 +788,16 @@ async function reactToOutcome(outcome) {
 }
 
 async function performSoloCut(guessKey) {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   const myHand = session.hands[playerId] || [];
   const eligible = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
   if (!eligible.some((k) => String(k) === String(guessKey))) return;
-  const stamp = Date.now();
-  const updates = {};
+  processingAction = true;
+  try {
+    const stamp = Date.now();
+    const updates = {};
 
   myHand.forEach((wire, i) => {
     if (String(wire.guessKey) === String(guessKey) && !wire.cut) {
@@ -788,17 +811,24 @@ async function performSoloCut(guessKey) {
   updates[`public/validationTokens/${guessKey}`] = true;
   updates.currentTurn = nextTurn();
 
-  await update(ref(db, `sessions/${code}`), updates);
-  checkWin();
+    await update(ref(db, `sessions/${code}`), updates);
+    const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
+    checkWin({ ...session.hands, [playerId]: newHand });
+  } finally {
+    processingAction = false;
+  }
 }
 
 async function revealRedWires() {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   const myHand = session.hands[playerId] || [];
   if (!canRevealRedWires(myHand)) return;
-  const stamp = Date.now();
-  const updates = {};
+  processingAction = true;
+  try {
+    const stamp = Date.now();
+    const updates = {};
 
   myHand.forEach((wire, i) => {
     if (wire.type === "red" && !wire.cut) {
@@ -811,32 +841,21 @@ async function revealRedWires() {
   });
   updates.currentTurn = nextTurn();
 
-  await update(ref(db, `sessions/${code}`), updates);
-  checkWin();
+    await update(ref(db, `sessions/${code}`), updates);
+    const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
+    checkWin({ ...session.hands, [playerId]: newHand });
+  } finally {
+    processingAction = false;
+  }
 }
 
 function nextTurn() {
-  const order = session.turnOrder;
-  if (!order || order.length === 0) return playerId;
-  const startIdx = order.indexOf(playerId);
-  if (startIdx === -1) return order[0];
-  for (let step = 1; step <= order.length; step++) {
-    const nextId = order[(startIdx + step) % order.length];
-    const hand = session.hands && session.hands[nextId];
-    if (hand && !isHandFullyCut(hand)) return nextId;
-  }
-  return order[(startIdx + 1) % order.length];
+  return getNextTurn(playerId, session.turnOrder, session.hands);
 }
 
-async function checkWin() {
-  const allNonRedCut = Object.values(session.hands).every((hand) => !hand || hand.filter((w) => w.type !== "red").every((w) => w.cut));
-  const hasNonRed = Object.values(session.hands).some((hand) => hand && hand.some((w) => w.type !== "red"));
-  const allRedLast = Object.values(session.hands).every((hand) => {
-    if (!hand) return true;
-    const remaining = hand.filter((w) => !w.cut);
-    return remaining.length === 0 || remaining.every((w) => w.type === "red");
-  });
-  if (hasNonRed && allNonRedCut && allRedLast) await update(ref(db, `sessions/${code}`), { status: "won" });
+async function checkWin(handsOverride = null) {
+  const hands = handsOverride || session.hands;
+  if (isGameWon(hands)) await update(ref(db, `sessions/${code}`), { status: "won" });
 }
 
 function toggleWinOverlay(session) {

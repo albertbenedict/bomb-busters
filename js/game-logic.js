@@ -138,6 +138,28 @@ export function isHandFullyCut(hand) {
   return hand.every((wire) => wire.cut);
 }
 
+export function getNextTurn(currentPlayerId, turnOrder, hands) {
+  if (!turnOrder?.length) return currentPlayerId;
+  const startIdx = turnOrder.indexOf(currentPlayerId);
+  if (startIdx === -1) return turnOrder[0];
+  for (let step = 1; step <= turnOrder.length; step++) {
+    const nextId = turnOrder[(startIdx + step) % turnOrder.length];
+    const hand = hands?.[nextId];
+    if (hand && !isHandFullyCut(hand)) return nextId;
+  }
+  return turnOrder[(startIdx + 1) % turnOrder.length];
+}
+
+export function isGameWon(hands) {
+  const allHands = Object.values(hands || {});
+  const hasNonRed = allHands.some((hand) => hand?.some((wire) => wire.type !== "red"));
+  if (!hasNonRed) return false;
+  return allHands.every((hand) => {
+    const remaining = hand?.filter((wire) => !wire.cut) || [];
+    return remaining.length === 0 || remaining.every((wire) => wire.type === "red");
+  });
+}
+
 export function generateEquipment(count) {
   const n = Math.max(0, Math.min(5, Math.round(Number(count) || 0)));
   const equipment = {};
