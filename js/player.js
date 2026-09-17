@@ -680,7 +680,13 @@ function renderGuessResult() {
 }
 
 async function submitGuess(guessKey) {
+  if (!session || session.status !== "in_progress") return;
+  if (session.currentTurn !== playerId) return;
+  if (!activeGuess) return;
   const { targetId, position } = activeGuess;
+  const targetHand = session.hands?.[targetId];
+  const wire = targetHand?.[position];
+  if (!wire || wire.cut) return;
   const snapshot = { ...activeGuess };
   const actionId = crypto.randomUUID();
   activeGuess = null;
@@ -784,7 +790,16 @@ async function reactToOutcome(outcome) {
     }
 
     await update(ref(db, `sessions/${code}`), updates);
-    checkWin();
+    const newHand =
+      session.hands[playerId]?.map((wire, i) =>
+        updates[`hands/${playerId}/${i}/cut`]
+          ? { ...wire, cut: true }
+          : wire
+      ) || [];
+    checkWin({
+      ...session.hands,
+      [playerId]: newHand,
+    });
   } finally {
     reactingToOutcome = false;
   }

@@ -674,7 +674,6 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
   };
   Object.keys(session.public.players || {}).forEach((id) => {
     updates[`public/players/${id}/handSize`] = 0;
-    updates[`public/players/${id}/connected`] = true;
   });
   await update(ref(db, `sessions/${code}`), updates);
 });
