@@ -19,18 +19,6 @@ function setTableConn(connected) {
   tableConnText.textContent = connected ? "Connected" : "Offline — check Wi-Fi / disable Firefox Tracking Protection";
 }
 
-function polar(cx, cy, r, deg) {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-function segmentPath(cx, cy, r, startDeg, endDeg) {
-  const start = polar(cx, cy, r, startDeg);
-  const end = polar(cx, cy, r, endDeg);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
-}
-const CAT_HEAD_D = "M -9 -7 C -9 -7 -7 -13 0 -8 C 7 -13 9 -7 9 -7 L 7 6 C 7 9 4 12 0 12 C -4 12 -7 9 -7 6 Z";
-
 function showTableError(message, hint) {
   tableErrorEl.innerHTML = "";
   const strong = document.createElement("div");
@@ -358,6 +346,7 @@ function render(session) {
     detonatorBadge.classList.toggle("hidden", !danger && !critical);
   }
 
+  const needle = document.getElementById("detonator-needle");
   if (needle) {
     const max = detonator.max || getDetonatorMax(Object.keys(session.public.players || {}).length || 4);
     const startAngle = ({ 5: 150, 4: 90, 3: 30, 2: 330, 1: 270, 0: 210 }[max] ?? (210 + max * 60) % 360);
