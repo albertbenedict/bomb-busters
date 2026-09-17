@@ -19,7 +19,7 @@ export function buildDeck({ yellowCount = 4, redCount = 2 } = {}) {
   }
   const yellowPool = [];
   for (let v = 1; v <= 11; v++) yellowPool.push(v + 0.1);
-  const yellows = shuffle(yellowPool).slice(0, Math.max(0, Math.min(11, yellowCount)));
+  const yellows = shuffle(yellowPool).slice(0, Math.max(0, Math.min(6, yellowCount)));
   yellows.forEach((val) => deck.push({ type: "yellow", value: val, guessKey: "yellow" }));
   const redPool = [];
   for (let v = 1; v <= 11; v++) redPool.push(v + 0.5);

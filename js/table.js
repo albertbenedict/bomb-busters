@@ -647,6 +647,15 @@ async function kickPlayer(playerId, name) {
   if (session.public?.captainId === playerId) {
     updates["public/captainId"] = order[0] || null;
   }
+  if (
+    session.pendingGuess?.target === playerId ||
+    session.pendingGuess?.by === playerId
+  ) {
+    updates.pendingGuess = null;
+    if (session.pendingGuess?.by) {
+      updates[`public/pendingSelections/${session.pendingGuess.by}`] = null;
+    }
+  }
   await update(ref(db, `sessions/${code}`), updates);
 }
 

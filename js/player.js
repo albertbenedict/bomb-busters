@@ -562,6 +562,7 @@ function renderHintActions(isMyHintTurn) {
 }
 
 async function submitHint(position) {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (!(session.config?.hintsEnabled ?? true)) return;
   const hints = session.public.hints || {};
@@ -584,7 +585,12 @@ async function submitHint(position) {
     at: Date.now(),
   };
   updates["public/hintIndex"] = hintIndex + 1;
-  await update(ref(db, `sessions/${code}`), updates);
+  processingAction = true;
+  try {
+    await update(ref(db, `sessions/${code}`), updates);
+  } finally {
+    processingAction = false;
+  }
 }
 
 async function useEquipment(equipmentId) {
@@ -738,8 +744,8 @@ async function resolvePendingGuess(guess) {
     updates.status = "lost";
     updates[`public/detonator/position`] = session.public.detonator.max;
     updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: wire.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
-    if (guess.id) lastProcessedActionId = guess.id;
     await update(ref(db, `sessions/${code}`), updates);
+    if (guess.id) lastProcessedActionId = guess.id;
     return;
   }
   let newDetonatorPos = session.public.detonator.position;
@@ -758,12 +764,12 @@ async function resolvePendingGuess(guess) {
     position: guess.position, acknowledged: false, at: stamp, isRed,
   };
 
-  if (guess.id) lastProcessedActionId = guess.id;
   if (newDetonatorPos >= session.public.detonator.max) {
     updates.status = "lost";
   }
 
   await update(ref(db, `sessions/${code}`), updates);
+  if (guess.id) lastProcessedActionId = guess.id;
   } finally {
     resolvingGuess = false;
   }
@@ -774,7 +780,6 @@ async function reactToOutcome(outcome) {
   if (outcome.id && lastProcessedActionId === outcome.id) return;
   reactingToOutcome = true;
   try {
-    if (outcome.id) lastProcessedActionId = outcome.id;
     const updates = { "lastOutcome/acknowledged": true };
 
     if (outcome.correct) {
@@ -785,21 +790,24 @@ async function reactToOutcome(outcome) {
       }
     }
 
-    if (session.status !== "lost") {
-      updates.currentTurn = nextTurn();
-    }
-
-    await update(ref(db, `sessions/${code}`), updates);
     const newHand =
       session.hands[playerId]?.map((wire, i) =>
         updates[`hands/${playerId}/${i}/cut`]
           ? { ...wire, cut: true }
           : wire
       ) || [];
-    checkWin({
+    const newHands = {
       ...session.hands,
       [playerId]: newHand,
-    });
+    };
+
+    if (session.status !== "lost") {
+      updates.currentTurn = getNextTurn(playerId, session.turnOrder, newHands);
+    }
+
+    await update(ref(db, `sessions/${code}`), updates);
+    if (outcome.id) lastProcessedActionId = outcome.id;
+    checkWin(newHands);
   } finally {
     reactingToOutcome = false;
   }
@@ -827,11 +835,12 @@ async function performSoloCut(guessKey) {
     }
   });
   updates[`public/validationTokens/${guessKey}`] = true;
-  updates.currentTurn = nextTurn();
+  const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
+  const newHands = { ...session.hands, [playerId]: newHand };
+  updates.currentTurn = getNextTurn(playerId, session.turnOrder, newHands);
 
     await update(ref(db, `sessions/${code}`), updates);
-    const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
-    checkWin({ ...session.hands, [playerId]: newHand });
+    checkWin(newHands);
   } finally {
     processingAction = false;
   }
@@ -857,11 +866,12 @@ async function revealRedWires() {
       };
     }
   });
-  updates.currentTurn = nextTurn();
+  const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
+  const newHands = { ...session.hands, [playerId]: newHand };
+  updates.currentTurn = getNextTurn(playerId, session.turnOrder, newHands);
 
     await update(ref(db, `sessions/${code}`), updates);
-    const newHand = myHand.map((w, i) => updates[`hands/${playerId}/${i}/cut`] ? { ...w, cut: true } : w);
-    checkWin({ ...session.hands, [playerId]: newHand });
+    checkWin(newHands);
   } finally {
     processingAction = false;
   }
