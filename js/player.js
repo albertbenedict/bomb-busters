@@ -743,7 +743,7 @@ async function resolvePendingGuess(guess) {
   if (isRed) {
     updates.status = "lost";
     updates[`public/detonator/position`] = session.public.detonator.max;
-    updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: wire.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
+    updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: guess.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
     await update(ref(db, `sessions/${code}`), updates);
     if (guess.id) lastProcessedActionId = guess.id;
     return;
@@ -760,7 +760,7 @@ async function resolvePendingGuess(guess) {
   }
 
   updates.lastOutcome = {
-    id: guess.id, by: guess.by, target: playerId, correct, guessKey: wire.guessKey,
+    id: guess.id, by: guess.by, target: playerId, correct, guessKey: guess.guessKey,
     position: guess.position, acknowledged: false, at: stamp, isRed,
   };
 
@@ -783,9 +783,9 @@ async function reactToOutcome(outcome) {
     const updates = { "lastOutcome/acknowledged": true };
 
     if (outcome.correct) {
-      const myHand = session.hands[playerId];
-      const idx = outcome.position;
-      if (myHand?.[idx] && !myHand[idx].cut) {
+      const myHand = session.hands[playerId] || [];
+      const idx = myHand.findIndex((w) => !w.cut && String(w.guessKey) === String(outcome.guessKey));
+      if (idx > -1) {
         updates[`hands/${playerId}/${idx}/cut`] = true;
       }
     }
