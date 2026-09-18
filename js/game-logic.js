@@ -123,8 +123,11 @@ export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
   for (const rawKey of Object.keys(counts)) {
     const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
     const total = totals[key] ?? 4;
-    const remaining = total - cutCountForKey(cutLog, key);
-    if (remaining === counts[rawKey]) out.push(key);
+    const cut = cutCountForKey(cutLog, key);
+    const remaining = total - cut;
+    // Lenient: once a value is proven (>=1 cut anywhere), anyone holding it can solo.
+    // Keep strict fallback: holding all remaining copies (even with 0 cuts, e.g. 4-of-a-kind).
+    if (cut >= 1 || remaining === counts[rawKey]) out.push(key);
   }
   return out;
 }
