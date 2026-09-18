@@ -787,6 +787,17 @@ async function reactToOutcome(outcome) {
       const idx = myHand.findIndex((w) => !w.cut && String(w.guessKey) === String(outcome.guessKey));
       if (idx > -1) {
         updates[`hands/${playerId}/${idx}/cut`] = true;
+        const wire = myHand[idx];
+        updates[`public/cutLog/log_${outcome.at}_${playerId}_${idx}`] = {
+          ownerId: playerId,
+          position: idx,
+          type: wire.type,
+          value: wire.value ?? wire.guessKey,
+          guessKey: wire.guessKey,
+          guessedBy: playerId,
+          result: "cut",
+          action: "duo",
+        };
       }
     }
 
