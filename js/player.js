@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES, getNextTurn, isGameWon } from "./game-logic.js";
+import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES, getNextTurn, isGameWon, cutCountForKey, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -224,7 +224,7 @@ function render() {
     hintsCard.setAttribute("aria-hidden", String(!showHints && !hasAnyHints));
   }
 
-  const soloKeys = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
+  const soloKeys = getAllSoloCutEligibleKeys(myHand, session.hands, session.config);
   const soloContainer = document.getElementById("solo-container") || (() => {
     const c = document.createElement("div");
     c.id = "solo-container";
@@ -439,22 +439,24 @@ function renderEquipment(canAct) {
   usable.forEach((eq) => {
     const btn = document.createElement("button");
     btn.className = "btn-equipment";
+    const progress = cutCountForKey(session.public.cutLog, eq.unlockValue);
+    const progressLabel = `${progress}/${EQUIPMENT_UNLOCK_CUTS} cuts`;
     if (eq.type === "skip") {
       btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Skip your turn`;
-      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — skip turn, pass to next player`;
+      btn.title = `Unlocked ✓ (${progressLabel} of ${eq.unlockValue}s) — skip turn, pass to next player`;
       btn.disabled = !canAct;
     } else if (eq.type === "blueHint") {
       btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Blue Hint`;
-      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — reveal one of your blue wires`;
+      btn.title = `Unlocked ✓ (${progressLabel} of ${eq.unlockValue}s) — reveal one of your blue wires`;
       btn.disabled = !canAct;
     } else if (eq.type === "yellowHint") {
       btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Yellow Hint`;
-      btn.title = `Unlocked after 4 cuts of ${eq.unlockValue}s — reveal one of your yellow wires`;
+      btn.title = `Unlocked ✓ (${progressLabel} of ${eq.unlockValue}s) — reveal one of your yellow wires`;
       btn.disabled = !canAct;
     } else {
       const atZero = (session.public.detonator?.position || 0) <= 0;
       btn.textContent = `Use Equipment (unlocks on ${eq.unlockValue}s) — Defuse one mistake`;
-      btn.title = atZero ? "Detonator already at 0" : `Unlocked after 4 cuts of ${eq.unlockValue}s — reduces detonator by 1`;
+      btn.title = atZero ? "Detonator already at 0" : `Unlocked ✓ (${progressLabel} of ${eq.unlockValue}s) — reduces detonator by 1`;
       btn.disabled = !canAct || atZero;
     }
     btn.addEventListener("click", () => useEquipment(eq.id));
@@ -611,7 +613,7 @@ async function useEquipment(equipmentId) {
     updates[`public/equipment/${equipmentId}/used`] = true;
     updates[`public/equipment/${equipmentId}/unlocked`] = true;
     if (eq.type === "skip") {
-      updates.currentTurn = nextTurn();
+      updates.currentTurn = getNextTurn(playerId, session.turnOrder, session.hands);
     } else {
       const pos = session.public.detonator?.position || 0;
       if (pos <= 0) return;
@@ -829,7 +831,7 @@ async function performSoloCut(guessKey) {
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   const myHand = session.hands[playerId] || [];
-  const eligible = getAllSoloCutEligibleKeys(myHand, session.public.cutLog, session.config);
+  const eligible = getAllSoloCutEligibleKeys(myHand, session.hands, session.config);
   if (!eligible.some((k) => String(k) === String(guessKey))) return;
   processingAction = true;
   try {
@@ -886,10 +888,6 @@ async function revealRedWires() {
   } finally {
     processingAction = false;
   }
-}
-
-function nextTurn() {
-  return getNextTurn(playerId, session.turnOrder, session.hands);
 }
 
 async function checkWin(handsOverride = null) {

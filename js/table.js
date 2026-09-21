@@ -3,7 +3,7 @@ import {
   ref, update, get, onValue, set,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { watchSession } from "./session.js";
-import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax, MISSIONS, WIRE_VALUES } from "./game-logic.js";
+import { buildDeck, dealHands, generateEquipment, getKeyTotals, cutCountForKey, getDetonatorMax, MISSIONS, WIRE_VALUES, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -480,12 +480,12 @@ function render(session) {
         const [, e] = entry;
         const cnt = cutCountForKey(cutLog, e.unlockValue);
         const isUsed = !!e.used;
-        const isUnlocked = !isUsed && cnt >= 4;
+        const isUnlocked = !isUsed && cnt >= EQUIPMENT_UNLOCK_CUTS;
         const typeMap = { skip: "Skip", defuse: "Defuse", blueHint: "Blue Hint", yellowHint: "Yellow Hint" };
         const typeLabel = typeMap[e.type] || "Defuse";
         chip.className = "eq-chip eq-chip--vertical" + (isUsed ? " eq-chip--used" : isUnlocked ? " eq-chip--unlocked" : " eq-chip--locked");
-        chip.textContent = isUsed ? `Used · ${e.unlockValue}s` : isUnlocked ? `Ready · ${e.unlockValue}s` : `Locked · ${e.unlockValue}s`;
-        chip.title = isUsed ? `Used ${typeLabel} (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked — ${typeLabel}${e.type==="skip"?" skip turn":e.type==="blueHint"?" reveal blue":e.type==="yellowHint"?" reveal yellow":" defuse one mistake"}` : `Needs 4 cuts of ${e.unlockValue}s (${cnt}/4) — ${typeLabel}`;
+        chip.textContent = isUsed ? `Used · ${e.unlockValue}s` : isUnlocked ? `Ready ✓ · ${e.unlockValue}s` : `Locked · ${e.unlockValue}s (${cnt}/${EQUIPMENT_UNLOCK_CUTS})`;
+        chip.title = isUsed ? `Used ${typeLabel} (unlocks on ${e.unlockValue}s)` : isUnlocked ? `Unlocked ✓ — ${typeLabel} (${cnt}/${EQUIPMENT_UNLOCK_CUTS} cuts of ${e.unlockValue}s)${e.type==="skip"?" skip turn":e.type==="blueHint"?" reveal blue":e.type==="yellowHint"?" reveal yellow":" defuse one mistake"}` : `Needs ${EQUIPMENT_UNLOCK_CUTS} cuts of ${e.unlockValue}s (${cnt}/${EQUIPMENT_UNLOCK_CUTS}) — ${typeLabel}`;
       }
       eqEl.appendChild(chip);
     }

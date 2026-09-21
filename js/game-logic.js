@@ -10,6 +10,8 @@ function shuffle(arr) {
 
 export const WIRE_VALUES = Array.from({ length: 12 }, (_, i) => i + 1);
 
+export const EQUIPMENT_UNLOCK_CUTS = 4;
+
 export function buildDeck({ yellowCount = 4, redCount = 2 } = {}) {
   const deck = [];
   for (const value of WIRE_VALUES) {
@@ -104,30 +106,33 @@ export function getKeyTotals(config) {
   return totals;
 }
 
-export function getSoloCutEligibleKey(hand, cutLog, config) {
+export function getSoloCutEligibleKey(hand, allHands, config) {
   if (!hand || !config) return null;
-  const keys = getAllSoloCutEligibleKeys(hand, cutLog, config);
+  const keys = getAllSoloCutEligibleKeys(hand, allHands, config);
   return keys.length ? keys[0] : null;
 }
 
-export function getAllSoloCutEligibleKeys(hand, cutLog, config) {
-  if (!hand || !config) return [];
-  const totals = getKeyTotals(config);
-  const counts = {};
-  hand.forEach((wire) => {
-    if (!wire.cut && wire.guessKey != null) {
-      counts[wire.guessKey] = (counts[wire.guessKey] || 0) + 1;
-    }
-  });
+export function getAllSoloCutEligibleKeys(hand, allHands, config) {
+  if (!hand || !allHands || !config) return [];
   const out = [];
-  for (const rawKey of Object.keys(counts)) {
-    const key = rawKey === "yellow" ? "yellow" : Number(rawKey);
-    const total = totals[key] ?? 4;
-    const cut = cutCountForKey(cutLog, key);
-    const remaining = total - cut;
-    // Lenient: once a value is proven (>=1 cut anywhere), anyone holding it can solo.
-    // Keep strict fallback: holding all remaining copies (even with 0 cuts, e.g. 4-of-a-kind).
-    if (cut >= 1 || remaining === counts[rawKey]) out.push(key);
+  const flat = Object.values(allHands).flatMap((h) => (Array.isArray(h) ? h : []));
+
+  for (const key of WIRE_VALUES) {
+    const myRemaining = hand.filter(
+      (wire) => !wire.cut && wire.type === "blue" && wire.guessKey === key
+    ).length;
+    if (myRemaining === 0) continue;
+    if (myRemaining !== 2 && myRemaining !== 4) continue;
+    const totalRemaining = flat.filter(
+      (wire) => !wire.cut && wire.type === "blue" && wire.guessKey === key
+    ).length;
+    if (myRemaining === totalRemaining) out.push(key);
+  }
+
+  const myYellow = hand.filter((wire) => !wire.cut && wire.guessKey === "yellow").length;
+  if (myYellow > 0) {
+    const totalYellow = flat.filter((wire) => !wire.cut && wire.guessKey === "yellow").length;
+    if (myYellow === totalYellow) out.push("yellow");
   }
   return out;
 }
@@ -185,8 +190,7 @@ export function getUsableEquipment(equipment, cutLog) {
   return Object.entries(eq)
     .filter(([, e]) => {
       if (e.used) return false;
-      const total = 4;
-      return cutCountForKey(cutLog, e.unlockValue) >= total;
+      return cutCountForKey(cutLog, e.unlockValue) >= EQUIPMENT_UNLOCK_CUTS;
     })
     .map(([id, e]) => ({ id, ...e }));
 }
