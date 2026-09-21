@@ -698,6 +698,20 @@ li:last-child { border-bottom: none; }
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
+.guess-source-wire {
+  cursor: pointer;
+}
+.guess-source-wire--selected {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.duo-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
 
 .turn-banner {
   border: var(--border-w) solid var(--border);

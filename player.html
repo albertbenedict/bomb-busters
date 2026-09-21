@@ -26,12 +26,13 @@
 
   <div id="guess-composer" class="card hidden">
     <div class="card-head">
-      <h3>Guess the value</h3>
+      <h3>Duo Cut</h3>
       <span class="badge badge--muted" id="guess-target-label"></span>
     </div>
-    <div id="guess-options" class="value-grid"></div>
-    <div class="value-grid__divider"><span>or</span></div>
-    <div id="guess-yellow-row" class="value-grid__yellow"></div>
+    <p id="guess-instruction" class="muted" style="font-size:0.85rem;">Choose one of your wires to make the guess.</p>
+    <div id="source-wire-selection" class="hand hand--tiles"></div>
+    <div id="guess-confirmation" class="duo-confirmation hidden"></div>
+    <button id="guess-confirm" class="btn-primary hidden">Confirm Duo Cut</button>
     <button id="guess-cancel" class="btn-secondary">Cancel</button>
   </div>
 
@@ -60,7 +61,7 @@
     <div class="card-head">
       <h3>Guess a teammate's wire</h3>
     </div>
-    <p class="muted">Tap a teammate's slot, then pick the value.</p>
+    <p class="muted">Tap a teammate's wire, then use one of your wires to make the guess.</p>
     <div id="targets" class="targets"></div>
   </div>
 

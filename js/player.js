@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, WIRE_VALUES, getNextTurn, isGameWon, cutCountForKey, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
+import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, getNextTurn, isGameWon, cutCountForKey, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");
@@ -350,16 +350,18 @@ function renderTargets(canAct) {
       const alreadyCut = !!(theirHand && theirHand[pos] && theirHand[pos].cut);
       const btn = document.createElement("button");
       btn.className = "rack-wire" + (alreadyCut ? " rack-wire--cut" : "");
-      if (activeGuess && activeGuess.targetId === id && activeGuess.position === pos) btn.classList.add("rack-wire--active");
+      const selPos = activeGuess && (activeGuess.targetPosition ?? activeGuess.position);
+      if (activeGuess && activeGuess.targetId === id && selPos === pos) btn.classList.add("rack-wire--active");
       btn.textContent = pos + 1;
       btn.disabled = !canAct || alreadyCut;
       btn.setAttribute("aria-label", `${p.name} wire ${pos + 1}${alreadyCut ? " (cut)" : ""}`);
       if (!alreadyCut) {
         btn.addEventListener("click", () => {
           const prev = activeGuess;
-          activeGuess = { targetId: id, targetName: p.name, position: pos };
+          const prevPos = prev && (prev.targetPosition ?? prev.position);
+          activeGuess = { targetId: id, targetName: p.name, targetPosition: pos, sourcePosition: null };
           render();
-          if (!prev || prev.targetId !== id || prev.position !== pos) {
+          if (!prev || prev.targetId !== id || prevPos !== pos) {
             update(ref(db, `sessions/${code}/public/pendingSelections/${playerId}`), { targetId: id, position: pos, targetName: p.name, at: Date.now() }).catch(() => {});
           }
         });
@@ -377,46 +379,68 @@ function renderGuessComposer(canAct) {
     composer.classList.add("hidden");
     return;
   }
+  const targetPosition = activeGuess.targetPosition ?? activeGuess.position;
+  if (targetPosition == null) {
+    composer.classList.add("hidden");
+    return;
+  }
   composer.classList.remove("hidden");
   document.getElementById("guess-target-label").textContent =
-    `${activeGuess.targetName} · wire ${activeGuess.position + 1}`;
+    `${activeGuess.targetName} · wire ${targetPosition + 1}`;
 
   const myHand = (session.hands && session.hands[playerId]) || [];
-  const haveKeys = new Set();
-  myHand.forEach((w) => {
-    if (!w.cut && w.guessKey != null) haveKeys.add(String(w.guessKey));
+  const selectionEl = document.getElementById("source-wire-selection");
+  selectionEl.innerHTML = "";
+  myHand.forEach((wire, i) => {
+    const selectable = !wire.cut && (wire.type === "blue" || wire.type === "yellow");
+    const div = document.createElement("button");
+    div.className = "wire wire--" + wire.type
+      + (wire.cut ? " cut" : "")
+      + (selectable ? " guess-source-wire" : "")
+      + (activeGuess.sourcePosition === i ? " guess-source-wire--selected" : "");
+    div.textContent = wireLabel(wire);
+    div.disabled = !selectable;
+    const posLabel = wire.type === "yellow"
+      ? `Your yellow wire at position ${i + 1}`
+      : `Your wire ${wire.value} at position ${i + 1}`;
+    div.setAttribute("aria-label", posLabel + (wire.cut ? " (cut)" : ""));
+    div.setAttribute("aria-pressed", activeGuess.sourcePosition === i ? "true" : "false");
+    if (selectable) {
+      div.title = posLabel;
+      div.addEventListener("click", () => {
+        activeGuess = { ...activeGuess, sourcePosition: i };
+        render();
+      });
+    }
+    selectionEl.appendChild(div);
   });
 
-  const optionsEl = document.getElementById("guess-options");
-  optionsEl.innerHTML = "";
-  for (const value of WIRE_VALUES) {
-    const have = haveKeys.has(String(value));
-    const btn = document.createElement("button");
-    btn.textContent = value;
-    btn.disabled = !have;
-    btn.className = have ? "" : "blocked";
-    btn.title = have ? `You have ${value}s — can guess` : `You have no uncut ${value}s`;
-    if (have) btn.addEventListener("click", () => submitGuess(value));
-    optionsEl.appendChild(btn);
-  }
-  const haveYellow = haveKeys.has("yellow");
-  const yellowRow = document.getElementById("guess-yellow-row");
-  if (yellowRow) {
-    yellowRow.innerHTML = "";
-    const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = "Yellow — any yellow wire";
-    yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
-    yellowBtn.disabled = !haveYellow;
-    yellowBtn.title = haveYellow ? "You have yellows — can guess" : "You have no uncut yellows";
-    if (haveYellow) yellowBtn.addEventListener("click", () => submitGuess("yellow"));
-    yellowRow.appendChild(yellowBtn);
+  const confirmationEl = document.getElementById("guess-confirmation");
+  const confirmBtn = document.getElementById("guess-confirm");
+  const sourceWire = activeGuess.sourcePosition != null ? myHand[activeGuess.sourcePosition] : null;
+  const sourceValid = !!(sourceWire && !sourceWire.cut && (sourceWire.type === "blue" || sourceWire.type === "yellow"));
+  if (sourceValid) {
+    const guessLabel = sourceWire.type === "yellow" ? "YELLOW" : String(sourceWire.value);
+    const usingLabel = sourceWire.type === "yellow" ? "Using your Yellow wire" : `Using your wire: ${guessLabel}`;
+    confirmationEl.innerHTML = "";
+    confirmationEl.classList.remove("hidden");
+    const targetLine = document.createElement("div");
+    targetLine.textContent = `${activeGuess.targetName} · wire ${targetPosition + 1}`;
+    confirmationEl.appendChild(targetLine);
+    const usingLine = document.createElement("div");
+    usingLine.textContent = usingLabel;
+    confirmationEl.appendChild(usingLine);
+    const guessLine = document.createElement("div");
+    guessLine.textContent = `Your guess: ${guessLabel}`;
+    guessLine.style.fontWeight = "800";
+    confirmationEl.appendChild(guessLine);
+    confirmBtn.classList.remove("hidden");
+    confirmBtn.onclick = () => submitGuess();
   } else {
-    const yellowBtn = document.createElement("button");
-    yellowBtn.textContent = "Yellow";
-    yellowBtn.className = "option-yellow" + (haveYellow ? "" : " blocked");
-    yellowBtn.disabled = !haveYellow;
-    if (haveYellow) yellowBtn.addEventListener("click", () => submitGuess("yellow"));
-    optionsEl.appendChild(yellowBtn);
+    confirmationEl.innerHTML = "";
+    confirmationEl.classList.add("hidden");
+    confirmBtn.classList.add("hidden");
+    confirmBtn.onclick = null;
   }
 
   document.getElementById("guess-cancel").onclick = () => {
@@ -687,21 +711,32 @@ function renderGuessResult() {
   }
 }
 
-async function submitGuess(guessKey) {
+async function submitGuess() {
+  if (processingAction) return;
   if (!session || session.status !== "in_progress") return;
   if (session.currentTurn !== playerId) return;
   if (!activeGuess) return;
-  const { targetId, position } = activeGuess;
+  const targetId = activeGuess.targetId;
+  const targetPosition = activeGuess.targetPosition ?? activeGuess.position;
+  const sourcePosition = activeGuess.sourcePosition;
+  if (targetId == null || targetPosition == null || sourcePosition == null) return;
   const targetHand = session.hands?.[targetId];
-  const wire = targetHand?.[position];
-  if (!wire || wire.cut) return;
+  const targetWire = targetHand?.[targetPosition];
+  if (!targetWire || targetWire.cut) return;
+  const myHand = session.hands?.[playerId] || [];
+  const sourceWire = myHand[sourcePosition];
+  if (!sourceWire || sourceWire.cut) return;
+  if (sourceWire.type !== "blue" && sourceWire.type !== "yellow") return;
+  const guessKey = sourceWire.guessKey;
+  if (guessKey == null) return;
   const snapshot = { ...activeGuess };
   const actionId = crypto.randomUUID();
   activeGuess = null;
   render();
+  processingAction = true;
   try {
     await update(ref(db, `sessions/${code}`), {
-      pendingGuess: { id: actionId, by: playerId, target: targetId, position, guessKey, action: "duo" },
+      pendingGuess: { id: actionId, by: playerId, target: targetId, position: targetPosition, sourcePosition, guessKey, action: "duo" },
       [`public/pendingSelections/${playerId}`]: null,
     });
   } catch (e) {
@@ -710,6 +745,8 @@ async function submitGuess(guessKey) {
     render();
     const el = document.getElementById("guess-result");
     if (el) { el.textContent = `⚠ Guess failed: ${e.message} — try again`; el.className = "guess-result guess-result--wrong"; el.classList.remove("hidden"); }
+  } finally {
+    processingAction = false;
   }
 }
 
@@ -718,8 +755,8 @@ async function resolvePendingGuess(guess) {
   if (guess.id && lastProcessedActionId === guess.id) return;
   resolvingGuess = true;
   try {
-    const myHand = session.hands[playerId];
-    const wire = myHand[guess.position];
+    const targetHand = session.hands[playerId];
+    const wire = targetHand?.[guess.position];
 
     if (!wire || wire.cut) {
       await update(ref(db, `sessions/${code}`), { pendingGuess: null });
@@ -739,20 +776,42 @@ async function resolvePendingGuess(guess) {
     guessedBy: guess.by,
     result: correct ? "cut" : "wrong",
     action: "duo",
+    actionId: guess.id ?? null,
   };
 
   const isRed = wire.type === "red";
   if (isRed) {
     updates.status = "lost";
     updates[`public/detonator/position`] = session.public.detonator.max;
-    updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: guess.guessKey, position: guess.position, acknowledged: false, at: stamp, isRed: true };
+    updates.lastOutcome = { id: guess.id, by: guess.by, target: playerId, correct: false, guessKey: guess.guessKey, position: guess.position, sourcePosition: guess.sourcePosition ?? null, acknowledged: false, at: stamp, isRed: true };
     await update(ref(db, `sessions/${code}`), updates);
     if (guess.id) lastProcessedActionId = guess.id;
     return;
   }
+
+  // Legacy guesses (pre source-position) carry no sourcePosition — resolve target-only.
+  const hasSource = guess.sourcePosition != null;
+  const guesserHand = hasSource ? session.hands?.[guess.by] : null;
+  const sourceWire = hasSource ? guesserHand?.[guess.sourcePosition] : null;
+  const sourceValid = !!(sourceWire && !sourceWire.cut && (sourceWire.type === "blue" || sourceWire.type === "yellow"));
+
   let newDetonatorPos = session.public.detonator.position;
   if (correct) {
     updates[`hands/${playerId}/${guess.position}/cut`] = true;
+    if (sourceValid && String(sourceWire.guessKey) === String(guess.guessKey)) {
+      updates[`hands/${guess.by}/${guess.sourcePosition}/cut`] = true;
+      updates[`public/cutLog/log_${stamp}_${guess.by}_${guess.sourcePosition}`] = {
+        ownerId: guess.by,
+        position: guess.sourcePosition,
+        type: sourceWire.type,
+        value: sourceWire.value ?? sourceWire.guessKey,
+        guessKey: sourceWire.guessKey,
+        guessedBy: guess.by,
+        result: "cut",
+        action: "duo",
+        actionId: guess.id ?? null,
+      };
+    }
   } else {
     updates[`public/infoTokens/info_${stamp}`] = {
       ownerId: playerId, position: guess.position, type: wire.type, value: wire.value ?? wire.guessKey, guessKey: wire.guessKey,
@@ -763,7 +822,7 @@ async function resolvePendingGuess(guess) {
 
   updates.lastOutcome = {
     id: guess.id, by: guess.by, target: playerId, correct, guessKey: guess.guessKey,
-    position: guess.position, acknowledged: false, at: stamp, isRed,
+    position: guess.position, sourcePosition: guess.sourcePosition ?? null, acknowledged: false, at: stamp, isRed,
   };
 
   if (newDetonatorPos >= session.public.detonator.max) {
@@ -782,9 +841,12 @@ async function reactToOutcome(outcome) {
   if (outcome.id && lastProcessedActionId === outcome.id) return;
   reactingToOutcome = true;
   try {
+    // Both wires (target + exact source) are already cut by the resolver.
+    // This only acknowledges, advances the turn from post-cut hands, and checks win.
+    // Legacy outcomes without sourcePosition fall back to value-match for one cutover.
     const updates = { "lastOutcome/acknowledged": true };
 
-    if (outcome.correct) {
+    if (outcome.correct && outcome.sourcePosition == null) {
       const myHand = session.hands[playerId] || [];
       const idx = myHand.findIndex((w) => !w.cut && String(w.guessKey) === String(outcome.guessKey));
       if (idx > -1) {
@@ -799,19 +861,21 @@ async function reactToOutcome(outcome) {
           guessedBy: playerId,
           result: "cut",
           action: "duo",
+          actionId: outcome.id ?? null,
         };
       }
     }
 
-    const newHand =
-      session.hands[playerId]?.map((wire, i) =>
-        updates[`hands/${playerId}/${i}/cut`]
-          ? { ...wire, cut: true }
-          : wire
-      ) || [];
     const newHands = {
       ...session.hands,
-      [playerId]: newHand,
+      ...Object.fromEntries(
+        Object.keys(updates)
+          .filter((k) => k.startsWith("hands/"))
+          .map((k) => {
+            const [, pid, idx] = k.split("/");
+            return [pid, (session.hands[pid] || []).map((w, i) => (String(i) === idx ? { ...w, cut: true } : w))];
+          })
+      ),
     };
 
     if (session.status !== "lost") {
