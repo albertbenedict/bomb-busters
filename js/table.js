@@ -135,8 +135,6 @@ if (code) {
   });
 }
 
-let prevDetonatorPosition = null;
-
 function render(session) {
   const missionId = session.config?.missionId;
   const missionEl = document.getElementById("board-mission");
@@ -355,8 +353,6 @@ function render(session) {
     needle.style.opacity = critical ? "0.9" : "1";
     needle.title = `${max} lives — starting at ${max}-cat segment center`;
   }
-
-  prevDetonatorPosition = detonator.position;
 
   const labelEl = document.getElementById("detonator-label");
   if (labelEl) {

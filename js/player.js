@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import {
   ref, onValue, update, onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getSoloCutEligibleKey, getAllSoloCutEligibleKeys, canRevealRedWires, isHandFullyCut, getUsableEquipment, isBlueHintValid, canGiveHint, getNextTurn, isGameWon, cutCountForKey, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
+import { getAllSoloCutEligibleKeys, canRevealRedWires, getUsableEquipment, isBlueHintValid, canGiveHint, getNextTurn, isGameWon, cutCountForKey, EQUIPMENT_UNLOCK_CUTS } from "./game-logic.js";
 
 const params = new URLSearchParams(location.search);
 const code = params.get("session");

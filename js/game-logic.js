@@ -106,12 +106,6 @@ export function getKeyTotals(config) {
   return totals;
 }
 
-export function getSoloCutEligibleKey(hand, allHands, config) {
-  if (!hand || !config) return null;
-  const keys = getAllSoloCutEligibleKeys(hand, allHands, config);
-  return keys.length ? keys[0] : null;
-}
-
 export function getAllSoloCutEligibleKeys(hand, allHands, config) {
   if (!hand || !allHands || !config) return [];
   const out = [];
@@ -206,8 +200,4 @@ export function isBlueHintValid(hand, position) {
 
 export function canGiveHint(hints, playerId) {
   return !(hints && hints[playerId]);
-}
-
-export function isHintPhaseComplete(hints, playerCount) {
-  return hints && Object.keys(hints).length >= playerCount;
 }
